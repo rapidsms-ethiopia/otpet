@@ -1,0 +1,28 @@
+{% extends "otp/index.html" %}
+{% block subtitle %}Health Workers {% endblock %}
+
+{% block right %}
+<div class="module"><h3> Health Workers</h3> 
+<table width="100%"> 
+    <thead><tr>
+        {% for column in table.columns %}
+            <th>
+            
+            {{ column }}
+            
+            </th>
+        {% endfor %}
+    <tr></thead>
+    <tbody>
+        {% for row in table.rows %}
+            <tr>
+                <td>{{row.alias}}</td>
+                <td>{{row.name}}</td>
+                <td><a href="../health_post/{{row.hu_pk}}">{{row.hp}}</a></td>
+                <td>{{row.contact}}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

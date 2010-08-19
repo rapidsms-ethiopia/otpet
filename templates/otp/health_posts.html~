@@ -1,0 +1,30 @@
+{% extends "otp/index.html" %}
+{% block subtitle %}Health Posts {% endblock %}
+
+{% block right %}
+<div class="module"><h3> Health Posts</h3> 
+<table width="100%"> 
+    <thead><tr>
+        {% for column in table.columns %}
+            <th>
+            {% if column.sortable %}<a href="?sort={{ column.name_toggled }}">{% endif %}
+            {{ column }}
+            {% if column.sortable %}</a>{% endif %}
+            </th>
+        {% endfor %}
+    <tr></thead>
+    <tbody>
+        {% for row in table.rows %}
+            <tr>
+                <td>{{row.code}}</td>
+                <td><a href="..otp/health_post/{{row.pk}}">{{row.name}}</a></td>
+                <td>{{row.woreda}}</td>
+				<td>{{row.zone}}</td>
+				<td>{{row.region}}</td>
+                
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endblock %}

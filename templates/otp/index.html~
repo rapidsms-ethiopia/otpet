@@ -1,0 +1,107 @@
+{% extends "otp/base.html" %}
+
+{% block stylesheets %}
+{{ block.super }}
+<link type="text/css" rel="stylesheet" href="{{ MEDIA_URL }}otpet/stylesheets/dashboard.css" />
+{% endblock %}
+
+{% block page_tabs %}
+<ul id="page-tabs">
+	<li class="page"><a href="/otp/health_posts">Health Posts</a></li>
+	<li class="page"><a href="/otp/health_workers">Health Workers</a></li>
+	<li class="page"><a href="/otp/reports">Reports</a></li>
+	
+</ul>
+{% endblock %}
+
+
+
+
+
+{% block left %}
+
+<div class="module"><h3>Summary</h3>
+    <div style="padding:5px;"> 
+        <p>The current weekly report period is:<br/>
+        <strong>{{ summary.period.start_date|date:"D d/m/Y" }} - {{ summary.period.end_date|date:"D d/m/Y" }}</strong></p>
+        <p><a href="otp/health_posts"><strong>{{ summary.health_posts }}</strong> Health Posts</a> are registered.<br/>
+        <a href="health_units/?filter=current"><strong>{{ summary.up2date }}</strong> health unit{{ summary.up2date|pluralize }}</a> ha{{ summary.up2date|pluralize:"s,ve" }} completed the report for this period.<br/>
+        <a href="health_units/?filter=missing"><strong>{{ summary.missing }}</strong> health unit{{ summary.up2date|pluralize }}</a> ha{{ summary.up2date|pluralize:"s,ve" }} <strong>not</strong> completed the report for this period.</p>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block right %}
+<div class="module"><h3>Recent Activity..</h3>  
+
+<table width="100%"> 
+    <thead><tr>
+        {% for column in table.columns %}
+            <th>
+            {% if column.sortable %}<a href="?sort={{ column.name_toggled }}">{% endif %}
+            {{ column }}
+            {% if column.sortable %}</a>{% endif %}
+            </th>
+        {% endfor %}
+    <tr></thead>
+    <tbody>
+        {% for row in table.rows %}
+            <tr>
+                <td><a href="../health_worker/">{{row.otp_reporter}}</td>
+				<td><a href="../health_post/{{row.hp_pk}}">{{row.health_post}}</td>
+                <td>{{row.new_admission}}</td>
+				<td>{{row.cured}}</td>
+                <td>{{row.died}}</td>
+                <td>{{row.defaulted}}</td>
+				<td>{{row.non_responded}}</td>
+                <td>{{row.medical_transfer}}</td>
+                <td>{{row.tfp_transfer}}</td>
+				<td>{{row.entry_time}}</td>
+				
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+</div>
+
+
+<!--
+<div style="clear:both;"></div>
+<div class="module"><h3>Resources</h3>
+    <div style="padding:5px;">
+        <p><a href="/static/findug/epi_form_20091027.pdf">HMIS Form 033B SMS (pdf)</a><br/>
+        <a href="/static/findug/definitions.pdf">Clinical Definitions (pdf)</a><br/>
+        <a href="/static/findug/instructions.pdf">Sending Instructions (pdf)</a><br/>
+        <a href="/static/findug/additional_instructions.pdf">Additional Sending Instructions (pdf)</a>
+        </p>
+
+    </div>
+</div>
+
+
+
+<div class="module"><h3>Current Period Reports</h3>
+    <div style="padding:5px;">
+        <p>
+        <a href="report/?r=diseases">Diseases Report</a><br/>
+        <a href="report/?r=cases">Malaria Cases Report</a><br/>
+        <a href="report/?r=treat">Malaria Treatments Report</a><br/>
+        <a href="report/?r=act">ACT Stock Report</a>
+        </p>
+        <a href="reports/">Create a customised report</a>
+        <p>
+        {% if not scope.location %}
+            {% for district in scope.districts %}
+                <a href="/static/findug/reports/{{district}}.pdf">{{district}} individual health unit reports</a><br/>
+            {% endfor %}
+        {% else %}
+            <a href="/static/findug/reports/{{scope}}.pdf">{{scope}} individual health unit reports</a><br/>
+        {% endif %}
+        </p>
+    </div>
+</div>
+-->
+{% endblock %}
+

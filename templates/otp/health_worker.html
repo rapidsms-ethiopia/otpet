@@ -1,0 +1,26 @@
+{% extends "otp/index.html" %}
+{% block subtitle %}Health Worker {% endblock %}
+
+{% block right %}
+<div class="module"><h3> Health Worker</h3> 
+<table width="100%"> 
+    <thead>
+        <tr>
+            <th>Code</th>
+            <th>Name</th>
+            <th>MRDT Stock</th>
+            <th>Today's Reports</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for location in locations %}
+            <tr>
+                <td><a href="/otpet/location/{{ location.obj.id }}">{{location.alias}}</a></td>
+                <td>{{location.obj}}</td>
+                <td>{{location.stock}}</td>
+                <td>{{location.reports}}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
