@@ -2,6 +2,7 @@
 # vim: noet
 
 from django.contrib.auth.decorators import login_required
+
 from datetime import datetime, timedelta
 import fpformat
 import os
@@ -18,11 +19,12 @@ from django.template import RequestContext
 from django.core.management import setup_environ
 
 from models import *
-##from utils import * 
+from utils import * 
 
 from tables import *
 import django_tables as tables
 from scope import *
+
 
 
 ##def send_sms(request):
@@ -37,6 +39,32 @@ from scope import *
 ##	
 ##	return HttpResponse(blast(recipients, sms_text), mimetype="text/plain")
 
+def simple(request):
+    import random
+    
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    from matplotlib.dates import DateFormatter
+
+    fig=Figure()
+    ax=fig.add_subplot(111)
+    x=[datetime.now()+timedelta(days=2),datetime.now()+timedelta(days=4),
+	datetime.now()+timedelta(days=6),datetime.now()+timedelta(days=8),datetime.now()+timedelta(days=12)]
+    y=[222,0,22,333,33]
+    now=datetime.now()
+    delta=timedelta(days=2)
+#    for i in range(2):
+#        x.append(now)
+#        now+=delta
+#        y.append(random.randint(0, 1000))
+    ax.plot_date(x, y, '-')
+    ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+    fig.autofmt_xdate()
+    canvas=FigureCanvas(fig)
+    response=HttpResponse(content_type='image/png')
+    canvas.print_png(response)
+    return response
+
 
 @login_required
 @define_scope
@@ -47,14 +75,19 @@ def index(request,scope):
 		period = ReportPeriod.objects.latest()
 	else:
 		period = ReportPeriod.from_day(datetime.today())
+		#period = ReportPeriod.weekboundaries_from_day(datetime.today())
 	summary['period'] = period
+	#summary['periodid'] = ReportPeriod.weekboundaries_from_day(datetime.today()).id
 	summary['health_posts'] = len(scope.health_posts())
+	summary['completed'] = len(scope.current_entries())
+	summary['missing'] = len(scope.health_posts()) - len(scope.current_entries())
+	summary['percent'] = round(float(len(scope.current_entries())) / float(len(scope.health_posts())) * 100.0)
     #summary['up2date'] = len(filter(lambda hc: hc.up2date(),
     #                                           scope.health_units()))
     #summary['missing'] = summary['total_units'] - summary['up2date']
 
 	
-	entries = scope.entries()
+	entries = scope.current_entries()
 	#Entry.objects.all()
 	if entries:	
 		all = []
@@ -71,18 +104,141 @@ def index(request,scope):
 			ent['non_responded'] = entry.non_responded
 			ent['medical_transfer'] = entry.medical_transfer
 			ent['tfp_transfer'] = entry.tfp_transfer
-			ent['entry_time'] = entry.entry_time
+			ent['entry_time'] = convertToHumanReadable(entry.entry_time)
 			all.append(ent)
 			table = EntryTable(all, order_by=request.GET.get('sort'))
 		return render_to_response('otp/index.html',{"ent" : ent, "summary" : summary, "table": table },context_instance=RequestContext(request))
 	else:
 		return render_to_response('otp/index.html',{"summary" : summary },context_instance=RequestContext(request))
+	
+	
+	
+	
+	
+	
+	
+	
+@login_required
+@define_scope
+def reports_view(request, scope):
+    ''' Show available reports '''
+
+    return render_to_response('otp/otp_reports.html',
+                              {'scope': scope,
+                               'periods': ReportPeriod.objects.all()},
+                               context_instance=RequestContext(request))
+    
+    
+    
+@login_required
+@define_scope
+def report_view(request, scope):
+	
+    
+    try:
+        start_period = ReportPeriod.objects.get(
+                    pk=request.GET.get('start', ReportPeriod.objects.latest().id))
+    except (ReportPeriod.DoesNotExist, ValueError):
+        start_period = ReportPeriod.objects.latest()
+    try:
+        end_period = ReportPeriod.objects.get(pk=request.GET.get('end',
+                                                             start_period.id))
+    except (ReportPeriod.DoesNotExist, ValueError):
+        end_period = start_period
+
+    periods = ReportPeriod.list_from_boundries(start_period, end_period)
+    
+    if len(periods) == 1:
+        dates = {'start': periods[0].start_date, 'end': periods[0].end_date}
+    elif len(periods) > 1:
+        dates = {'start': periods.reverse()[0].start_date,
+                 'end': periods[0].end_date}
+
+    grp = request.GET.get('grp')
+
+    cls = Entry
+
+    report_title = cls.TITLE
+    rows = []
+    count={}
+    
+
+    columns, sub_columns = cls.table_columns()
+    if grp in ['region','woreda','zone']:
+        
+        #groups = []
+        #for hp in scope.health_posts():HealthPost.objects.filter(type__name='region')
+        #for hp in HealthPost.objects.filter(type__name=grp):
+        #	groups.append(eval('hp.name'))
+            #groups.append(eval('hp.%s' % grp))
+        #groups = set(groups)
+        #for group in HealthPost.objects.filter(type__name=grp):
+        
+        for group in scope.health_posts(type=grp):
+            
+            row = {}
+            
+            row['cells'] = []
+            row['cells'].append({'value': unicode(group)})
+            results = (cls.aggregate_report(group, periods))
+            row['complete'] = results.pop('complete')
+            for value in results.values():
+                row['cells'].append({'value': value, 'num': True})
+            
+            rows.append(row)
+            
+        
+        title = grp.title()
+        columns.insert(0, {'name': title})
+    else:
+        for hp in scope.health_posts():
+            row = {}
+            row['cells'] = []
+            row['cells'].append({'value': unicode(hp),
+                                 'link': '/otp/health_post/%d' % hp.id})
+            results = cls.aggregate_report(hp, periods)
+            row['complete'] = results.pop('complete')
+            for value in results.values():
+                row['cells'].append({'value': value, 'num': True})
+            rows.append(row)
+        columns.insert(0, {'name': 'Health Post'})
+
+    aocolumns_js = "{ \"sType\": \"html\" },"
+    for col in columns[1:] + (sub_columns if sub_columns != None else []):
+        if not 'colspan' in col:
+            aocolumns_js += "{ \"asSorting\": [ \"desc\", \"asc\" ], " \
+                            "\"bSearchable\": false },"
+    aocolumns_js = aocolumns_js[:-1]
+
+    if len(periods) > 1 or grp in ['woreda', 'region', 'zone']:
+        aggregate = True
+    else:
+        aggregate = False
+    print columns
+    print sub_columns
+    context_dict = {'get_vars': request.META['QUERY_STRING'], 'scope': scope,
+                    'columns': columns, 'sub_columns': sub_columns,
+                    'rows': rows, 'dates': dates, 'report_title': report_title,
+                    'aggregate': aggregate, 'aocolumns_js': aocolumns_js}
+
+    if request.method == 'GET' and 'excel' in request.GET:
+        response = HttpResponse(mimetype="application/vnd.ms-excel")
+        filename = "%s %s.xls" % \
+                   (report_title, datetime.now().strftime("%d%m%Y"))
+        response['Content-Disposition'] = "attachment; " \
+                                          "filename=\"%s\"" % filename
+        response.write(create_excel(context_dict))
+        return response
+    else:
+        return render_to_response('otp/report.html', context_dict, context_instance=RequestContext(request))
+
 
 @login_required
-def reporters_view(request):
+@define_scope
+def reporters_view(request,scope):
 	''' Displays a list of reporters '''
 
-	reporters = OTPReporter.objects.all()
+	reporters = scope.otp_reporters()
 
 	all = []
 	for reporter in reporters:

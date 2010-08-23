@@ -112,7 +112,7 @@ table.display thead th {
     padding-right:8px;
 	border-bottom: 1px solid black;
     color: black;
-    font-size:13px;
+    font-size:12px;
 	cursor: pointer;
 	* cursor: hand;
     text-align:center;

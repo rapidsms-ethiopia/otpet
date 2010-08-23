@@ -327,7 +327,7 @@ class App (AppBase):
 				defaulted=df,
 				non_responded = nr,
 				medical_transfer = mt,
-				tfp_transfer = tt)[0]
+				tfp_transfer = tt).order_by('-report_period__id')[0]
 			
 			
 			receipt = last_report.receipt

@@ -67,18 +67,21 @@ class Scope:
                         except Location.DoesNotExist:
                                 self.location = None
 
-        def health_posts(self):
+        def health_posts(self,type='health post'):
                 ''' Returns the health posts within the scope location '''
                 #if  self.location == None:
                 #        return HealthPost.objects.all()
                 #else:
                 #        return HealthPost.list_by_location(location=self.location)
+                if type==None:
+                    location_type = "health post"
                 health_posts=HealthPost.list_by_location(location=self.location)
                 hp=[]
                 for healthpost in health_posts:
-                         if healthpost.location_type=="health post":
+                         if healthpost.location_type==type:
                          	hp.append(healthpost)
                 return hp
+            
 
         # only those HEWs form the the health post
         def otp_reporters(self):
@@ -108,6 +111,19 @@ class Scope:
                 otp_reporters = self.otp_reporters()
                 entries = []
                 for entry in Entry.objects.all():
+                        if entry.otp_reporter in otp_reporters:
+                                entries.append(entry)
+                return entries
+            
+        def current_entries(self):
+                ''' Return the current period OTP entries which are reported by the
+                health extension worker within the scope location '''
+                otp_reporters = self.otp_reporters()
+                #current_period = ReportPeriod.from_day(datetime.today())
+                start, end = ReportPeriod.weekboundaries_from_day(datetime.today())
+                current = Entry.objects.filter(entry_time__range=(start,end))
+                entries = []
+                for entry in current:
                         if entry.otp_reporter in otp_reporters:
                                 entries.append(entry)
                 return entries

@@ -7,9 +7,9 @@
     <thead><tr>
         {% for column in table.columns %}
             <th>
-            
+            {% if column.sortable %}<a href="?sort={{ column.name_toggled }}">{% endif %}
             {{ column }}
-            
+            {% if column.sortable %}</a>{% endif %}
             </th>
         {% endfor %}
     <tr></thead>
@@ -19,6 +19,7 @@
                 <td>{{row.alias}}</td>
                 <td>{{row.name}}</td>
                 <td><a href="../health_post/{{row.hu_pk}}">{{row.hp}}</a></td>
+				<td>{{row.hu_pk}}</td>
                 <td>{{row.contact}}</td>
             </tr>
         {% endfor %}

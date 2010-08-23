@@ -1,6 +1,6 @@
 {% extends "otp/base2.html" %}
 
-{% load includes %}
+
 {% block title %} RUTF summary {% endblock %}
 
 {% block stylesheet %}/static/rutfet/css/dashboard.css{% endblock %}

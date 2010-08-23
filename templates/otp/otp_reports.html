@@ -1,0 +1,53 @@
+{% extends "otp/base2.html" %}
+{% block subtitle %}Reports{% endblock %}
+
+{% block content %}
+<form method="GET" action="/otp/report/"
+<table>
+    <tr>
+        <td>Report Type: OTP REPORT</td>
+        
+    </tr>
+    <tr>
+        <td>Beginning Date:</td>
+        <td>
+            <select name="start">
+                <option value="" selected="selected">----------</option>
+                {% for period in periods %}
+                    <option value="{{period.id}}">{{period.start_date|date:"D d/m/Y"}}</option>
+                {% endfor %}
+            </select>
+        </td>
+    </tr>
+    <tr>
+        <td>Ending Date:</td>
+        <td>
+            <select name="end">
+                <option value="" selected="selected">----------</option>
+                {% for period in periods %}
+                    <option value="{{period.id}}">{{period.end_date|date:"D d/m/Y"}}</option>
+                {% endfor %}
+            </select>
+        </td>
+    </tr>
+    <tr>
+        <td>Group By:</td>
+        <td>
+            <select name="grp">
+                <option value="healthpost" selected="selected">Health Post</option>
+                <option value="woreda">Woreda</option>
+                <option value="zone">Zone</option>
+                <option value="region">Region</option>
+            </select>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" style="text-align:center"><input type="submit" value="Generate Report"/></td>
+    </tr>
+</table>
+
+</form>
+
+
+
+{% endblock %}

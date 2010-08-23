@@ -7,13 +7,14 @@ from datetime import date as pydate
 from datetime import timedelta, datetime
 
 from django.contrib.auth.models import User, UserManager
+from django.utils.datastructures import SortedDict
 
 ##from utils import otp_code, woreda_code
 from reporters.models import Reporter
 from locations.models import Location, LocationType
 ##from utils import otp_code, woreda_code
 
-
+from django.db.models import Sum
 
 
 class OTPReporter(Reporter):
@@ -229,27 +230,6 @@ class Alert(models.Model):
 		(self.time.strftime("%d/%m/%y"), self.reporter)
 
 
-##class Report(models.Model):
-##	supply = models.ForeignKey(Supply)
-##	begin_date = models.DateField()
-##	end_date = models.DateField()
-##	supply_place = models.ForeignKey(SupplyPlace)
-##
-##	def __unicode__(self):
-##		return "%s report" % self.supply.name
-##	
-##	def _get_latest_entry(self):
-##		try:
-##			e = Entry.objects.order_by('-time')[0]
-##		except:
-##			e = "No Entries"
-##		return e
-##	
-##	def _get_number_of_entries(self):
-##		return len(Entry.objects.filter(time__gte=self.begin_date).exclude(time__gte=self.end_date))
-##
-##	number_of_entries = property(_get_number_of_entries)
-##	latest_entry = property(_get_latest_entry)
 class ReportPeriod(models.Model):
         start_date = models.DateTimeField()
         end_date = models.DateTimeField()
@@ -274,22 +254,51 @@ class ReportPeriod(models.Model):
 
 	@classmethod
 	def weekboundaries_from_day(cls, day):
+		if day.weekday() < 7:
+			# get previous week
+			delta = day.weekday()
+			startd = day - timedelta(delta)
+			endd = startd + timedelta(6)
+			start = datetime(startd.year, startd.month, startd.day)
+			end = datetime(endd.year, endd.month, endd.day, 23, 59, 59)
+			return (start, end)
+		else:
+			# sunday can't bind
+			raise ErroneousDate
+		
+	@classmethod	
+	def prev_weekboundaries_from_day(cls, day):
 		if day.weekday() < 6:
 			# get previous week
 			delta = 7 + day.weekday()
 			startd = day - timedelta(delta)
 			endd = startd + timedelta(6)
 			start = datetime(startd.year, startd.month, startd.day)
-			end = datetime(endd.year, endd.month, endd.day, 23, 59)
+			end = datetime(endd.year, endd.month, endd.day, 23, 59, 59)
 			return (start, end)
 		else:
 			# sunday can't bind
 			raise ErroneousDate
+		
+	@classmethod	
+	def list_from_boundries(cls, start, end):
+		if start == end or end == None:
+			return [start]
+		if start.start_date > end.start_date:
+			start, end = end, start
+		return cls.objects.filter(start_date__range=(start.start_date,
+													end.start_date))
+		
+		
 
 
 	
 
 class Entry(models.Model):
+
+	TITLE = "OTP REPORT"
+	class Meta():
+		get_latest_by="report_period"			
 	otp_reporter = models.ForeignKey(OTPReporter, help_text="Health Extension Worker")
 	health_post = models.ForeignKey(HealthPost, help_text="The OTP site which this report was sent from")
 	new_admission = models.PositiveIntegerField(default=0,
@@ -306,14 +315,61 @@ class Entry(models.Model):
                             verbose_name=("Total Medical Transfer"))
 	tfp_transfer = models.PositiveIntegerField(default=0,
                             verbose_name=("Total TFP Transfer"))
+	#actual_admission=models.PositiveIntegerField(default=0,
+    #                        verbose_name=("New Admission"))
+
 	
 
 	entry_time = models.DateTimeField(auto_now_add=True)
 	report_period = models.ForeignKey(ReportPeriod, verbose_name="Period", help_text="The period in which the data is reported")
-        
+	
+	#@classmethod
+	#def _get_prev_entry(self,date):
+	
+	
+	@classmethod	
+	def get_entry_from_date(cls,date):
+		start, end = ReportPeriod.weekboundaries_from_day(date)
+		return cls.objects.filter(entry_time__range=(start,end))
+	
+	@classmethod	
+	def get_prev_entry_from_date(cls,date):
+		start, end = ReportPeriod.prev_weekboundaries_from_day(date)
+		entry = cls.objects.filter(entry_time__range=(start,end)).order_by('-entry_time')
+		return entry
+	
+	@classmethod	
+	def get_entry_from_period(cls,period,healthpost):
+		#start, end = ReportPeriod.prev_weekboundaries_from_day(date)
+		#if healthpost==None:
+		entry = cls.objects.filter(report_period__id=period,health_post__code=healthpost)[0]
+		#else:
+		#	entry = cls.objects.filter(report_period__id=period)
+		#entry = cls.objects.filter(health_post__code=healthpost)
+		return entry
+		
+	def get_actual_admission(self):
+		#get pervious entry
+		prev_entry = Entry.objects.filter(report_period__id=int(self.report_period.pk)-1,health_post=self.health_post)[0]
+		#calculste actual admission
+		actual_admission = self.new_admission - (prev_entry.new_admission - prev_entry.get_total_discharge())
+		return actual_admission
+	
+	
+	def get_total_discharge(self):
+		#get pervious entry
+		
+		#if prev_entry is not Nothing:
+		total_discharge = self.cured + self.died + self.defaulted + self.non_responded + self.medical_transfer + self.tfp_transfer
+		return total_discharge
+	
+	def get_period_report(self):
+		return self.report_period.pk
+	
+	     
 	def __unicode__(self):
-		return "OTP data reported by %s from %s" %\
-		(self.otp_reporter,self.health_post)
+		return "OTP data reported by %s from %s for period %s ." %\
+			(self.otp_reporter,self.health_post,self.report_period)
 
 	def _get_receipt(self):
                 return ("%sW%s/%s") % \
@@ -322,6 +378,63 @@ class Entry(models.Model):
 
                                  
         receipt = property(_get_receipt)
+        
+	@classmethod
+	def table_columns(cls):
+		columns = []
+		columns.append(
+			{'name': cls._meta.get_field('new_admission').verbose_name})
+		columns.append(
+			{'name': cls._meta.get_field('cured').verbose_name})
+		columns.append(
+			{'name': cls._meta.get_field('died').verbose_name})
+		columns.append(
+			{'name': cls._meta.get_field('defaulted').verbose_name})
+		columns.append(
+			{'name': cls._meta.get_field('non_responded').verbose_name})
+		columns.append(
+			{'name': cls._meta.get_field('medical_transfer').verbose_name})
+		columns.append(
+			{'name': cls._meta.get_field('tfp_transfer').verbose_name})
+		
+		sub_columns=None
+		return columns,sub_columns
+	
+	@classmethod
+	def aggregate_report(cls,location,periods):
+		#hp = HealthPost.list_by_location(location)
+		health_posts = HealthPost.list_by_location(location)
+		hp=[]
+		for healthpost in health_posts:
+			if healthpost.location_type=="health post":
+				hp.append(healthpost)
+		
+		results = SortedDict()
+		otp_reports = Entry.objects.filter(report_period__in=periods, health_post__in=hp)
+		if otp_reports.count() == len(hp) * len(periods):
+			results['complete'] = True
+		else:
+			results['complete'] = False
+		
+		for key in ['nadm','cured','died','defaulted','nresp','medt','tfpt']:
+			results[key] = None
+			
+		q = Entry.objects.filter(report_period__in=periods, health_post__in=hp).aggregate(nadm=Sum('new_admission'),
+										cured=Sum('cured'),
+										died=Sum('died'),
+										defaulted=Sum('defaulted'),
+										nresp=Sum('non_responded'),
+										medt=Sum('medical_transfer'),
+										tfpt=Sum('tfp_transfer'))
+		
+		
+		for key,value in q.items():
+			results[key] = value
+			
+		return results
+	
+	
+
 
 
 class WebUser(User):

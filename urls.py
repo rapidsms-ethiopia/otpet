@@ -2,6 +2,8 @@ from django.conf.urls.defaults import *
 ##from export import views as ex_views
 import os
 import otpet.views as views
+#import reporting
+#from django.contrib import admin
 
 urlpatterns = patterns("",
 ##    (r'^assets/(?P<path>.*)$', "django.views.static.serve",
@@ -20,10 +22,18 @@ urlpatterns = patterns("",
     #   (r'^send_sms/$', views.send_sms),
 
     # HEW registration form for Woreda Health officer
-        (r'^rutf/register_HEW',views.register_hew),
+	
+    (r'^rutf/register_HEW',views.register_hew),
+    
+    (r'^simple.png$', views.simple),
+
 
     # report in tabular form
     (r'^otp/reports', views.reports_test),
+    
+    #otp reports...
+    (r'^otp/otpreports', views.reports_view),
+    (r'^otp/report', views.report_view),
 
 	(r'^otp/health_workers/$', views.reporters_view),
 
@@ -37,5 +47,7 @@ urlpatterns = patterns("",
     # index page of rutf application  
     (r'^otp/$', views.index),
 	(r'^$', views.index),
+	
+	
 )
 

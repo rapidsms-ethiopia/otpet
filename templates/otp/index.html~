@@ -7,9 +7,11 @@
 
 {% block page_tabs %}
 <ul id="page-tabs">
+	<li class="page"><a href="/otp/reports">Reports</a></li>
 	<li class="page"><a href="/otp/health_posts">Health Posts</a></li>
 	<li class="page"><a href="/otp/health_workers">Health Workers</a></li>
-	<li class="page"><a href="/otp/reports">Reports</a></li>
+	
+	
 	
 </ul>
 {% endblock %}
@@ -22,9 +24,9 @@
 
 <div class="module"><h3>Summary</h3>
     <div style="padding:5px;"> 
-        <p>The current weekly report period is:<br/>
+        <p>The current weekly report period is: <strong>summary.periodid</strong><br/>
         <strong>{{ summary.period.start_date|date:"D d/m/Y" }} - {{ summary.period.end_date|date:"D d/m/Y" }}</strong></p>
-        <p><a href="otp/health_posts"><strong>{{ summary.health_posts }}</strong> Health Posts</a> are registered.<br/>
+        <p><a href="../../otp/health_posts"><strong>{{ summary.health_posts }}</strong> Health Posts</a> are registered.<br/>
         <a href="health_units/?filter=current"><strong>{{ summary.up2date }}</strong> health unit{{ summary.up2date|pluralize }}</a> ha{{ summary.up2date|pluralize:"s,ve" }} completed the report for this period.<br/>
         <a href="health_units/?filter=missing"><strong>{{ summary.missing }}</strong> health unit{{ summary.up2date|pluralize }}</a> ha{{ summary.up2date|pluralize:"s,ve" }} <strong>not</strong> completed the report for this period.</p>
     </div>
@@ -48,8 +50,8 @@
     <tbody>
         {% for row in table.rows %}
             <tr>
-                <td><a href="../health_worker/">{{row.otp_reporter}}</td>
-				<td><a href="../health_post/{{row.hp_pk}}">{{row.health_post}}</td>
+                <td><a href="../otp/health_worker/">{{row.otp_reporter}}</td>
+				<td><a href="../otp/health_post/{{row.hp_pk}}">{{row.health_post}}</td>
                 <td>{{row.new_admission}}</td>
 				<td>{{row.cured}}</td>
                 <td>{{row.died}}</td>

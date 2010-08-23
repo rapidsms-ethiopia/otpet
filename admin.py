@@ -10,7 +10,7 @@ admin.site.register(OTPSite)
 admin.site.register(OTPReporter)
 
 
-admin.site.register(LocationType)
+#admin.site.register(LocationType)
 
 admin.site.register(HealthPost)
 
