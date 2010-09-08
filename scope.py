@@ -109,8 +109,9 @@ class Scope:
                 ''' Return the OTP entries which are reported by the
                 health extension worker within the scope location '''
                 otp_reporters = self.otp_reporters()
+                health_posts=HealthPost.list_by_location(location=self.location)
                 entries = []
-                for entry in Entry.objects.all():
+                for entry in Entry.objects.filter(health_post__in=health_posts):
                         if entry.otp_reporter in otp_reporters:
                                 entries.append(entry)
                 return entries
@@ -119,9 +120,11 @@ class Scope:
                 ''' Return the current period OTP entries which are reported by the
                 health extension worker within the scope location '''
                 otp_reporters = self.otp_reporters()
+                
+                health_posts=HealthPost.list_by_location(location=self.location)
                 #current_period = ReportPeriod.from_day(datetime.today())
                 start, end = ReportPeriod.weekboundaries_from_day(datetime.today())
-                current = Entry.objects.filter(entry_time__range=(start,end))
+                current = Entry.objects.filter(entry_time__range=(start,end),health_post__in=health_posts)
                 entries = []
                 for entry in current:
                         if entry.otp_reporter in otp_reporters:
