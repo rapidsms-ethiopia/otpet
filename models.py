@@ -289,7 +289,17 @@ class ReportPeriod(models.Model):
 		return cls.objects.filter(start_date__range=(start.start_date,
 													end.start_date))
 		
+class Configuration(models.Model):
+	begining_admission = models.PositiveIntegerField(default=0,
+													verbose_name="Begining OTP Patient")
+	
+	@classmethod
+	def get_begining_admission(cls):
+		return (cls.objects.values('begining_admission'))[0]['begining_admission']
+	
+	#begining = (property(_get_begining_admission))
 		
+	
 
 
 	
@@ -350,9 +360,12 @@ class Entry(models.Model):
 		
 	def get_actual_admission(self):
 		#get pervious entry
-		prev_entry = Entry.objects.filter(report_period__id=int(self.report_period.pk)-1,health_post=self.health_post)[0]
-		#calculste actual admission
-		actual_admission = self.new_admission - (prev_entry.new_admission - prev_entry.get_total_discharge())
+		try:
+			prev_entry = Entry.objects.filter(report_period__id=int(self.report_period.pk)-1,health_post=self.health_post)[0]
+			actual_admission = self.new_admission - (prev_entry.new_admission - prev_entry.get_total_discharge())
+		except(ObjectDoesNotExist,	IndexError):
+			actual_admission = self.new_admission - (Configuration.get_begining_admission())
+			
 		return actual_admission
 	
 	
@@ -362,6 +375,9 @@ class Entry(models.Model):
 		#if prev_entry is not Nothing:
 		total_discharge = self.cured + self.died + self.defaulted + self.non_responded + self.medical_transfer + self.tfp_transfer
 		return total_discharge
+	
+	def get_total_remaining(self):
+		return self.new_admission - self.get_total_discharge()
 	
 	def get_period_report(self):
 		return self.report_period.pk
@@ -418,7 +434,7 @@ class Entry(models.Model):
 		
 		for key in ['nadm','cured','died','defaulted','nresp','medt','tfpt']:
 			results[key] = None
-			
+	
 		q = Entry.objects.filter(report_period__in=periods, health_post__in=hp).aggregate(nadm=Sum('new_admission'),
 										cured=Sum('cured'),
 										died=Sum('died'),
@@ -426,11 +442,140 @@ class Entry(models.Model):
 										nresp=Sum('non_responded'),
 										medt=Sum('medical_transfer'),
 										tfpt=Sum('tfp_transfer'))
-		
+		sum = Entry.objects.filter(report_period__in=periods, health_post__in=hp).extra(
+							select = {'total_exits': 'SUM(cured + died + defaulted + non_responded + medical_transfer + tfp_transfer)'},)[0]
 		
 		for key,value in q.items():
 			results[key] = value
 			
+			
+		
+
+		if len(periods)>0:
+			try:
+				entry = Entry.objects.filter(report_period__in=periods,health_post__in=hp).order_by('report_period')
+				#lentry = Entry.objects.filter(report_period__start_date=periods[0].start_date,health_post__in=hp)
+#				results['Begining'] = entry[0].new_admission - entry[0].get_actual_admission()
+#				results['New Admission'] = entry[0].get_actual_admission()
+#				results['Ending'] = entry[0].get_total_remaining()
+#				results['nadm'] = "[Beg. %s] [Actual Ad. %s ]\n [Tot. Ad. %s]\n  [Ending %s]" %(
+#														entry[0].new_admission - entry[0].get_actual_admission(),
+#														entry[0].get_actual_admission(),
+#														sum.total_exits + entry[0].get_total_remaining(),
+#														entry[0].get_total_remaining())
+				results['nadm'] = sum.total_exits + entry[0].get_total_remaining()
+			except:
+				results['nadm'] = ''
+	
+		return results
+	
+	
+	@classmethod
+	def aggregate_healthpost(cls,location,periods):
+		#hp = HealthPost.list_by_location(location)
+		health_posts = HealthPost.list_by_location(location)
+		hp=[]
+		for healthpost in health_posts:
+			if healthpost.location_type=="health post":
+				hp.append(healthpost)
+		
+		results = SortedDict()
+		otp_reports = Entry.objects.filter(report_period__in=periods, health_post__in=hp)
+		if otp_reports.count() == len(hp) * len(periods):
+			results['complete'] = True
+		else:
+			results['complete'] = False
+			
+		for key in ['Begining', 'New_Admission','nadm','cured','died','defaulted','nresp','medt','tfpt', 'Ending']:
+			results[key] = None	
+		
+		if len(periods)>0:
+			try:
+				entry = Entry.objects.filter(report_period__in=periods,health_post__in=hp).order_by('report_period')
+				#lentry = Entry.objects.filter(report_period__start_date=periods[0].start_date,health_post__in=hp)
+				results['Begining'] = entry[0].new_admission - entry[0].get_actual_admission()
+				results['New_Admission'] = entry[0].get_actual_admission()
+				results['Ending'] = entry[0].get_total_remaining()
+#				results['nadm'] = "[Beg. %s] [Actual Ad. %s ]\n [Tot. Ad. %s]\n  [Ending %s]" %(
+#														entry[0].new_admission - entry[0].get_actual_admission(),
+#														entry[0].get_actual_admission(),
+#														sum.total_exits + entry[0].get_total_remaining(),
+#														entry[0].get_total_remaining())
+				results['nadm'] = sum.total_exits + entry[0].get_total_remaining()
+			except:
+				results['nadm'] = ''
+				
+		
+	
+		q = Entry.objects.filter(report_period__in=periods, health_post__in=hp).aggregate(nadm=Sum('new_admission'),
+										cured=Sum('cured'),
+										died=Sum('died'),
+										defaulted=Sum('defaulted'),
+										nresp=Sum('non_responded'),
+										medt=Sum('medical_transfer'),
+										tfpt=Sum('tfp_transfer'))
+		sum = Entry.objects.filter(report_period__in=periods, health_post__in=hp).extra(
+							select = {'total_exits': 'SUM(cured + died + defaulted + non_responded + medical_transfer + tfp_transfer)'},)[0]
+		
+		for key,value in q.items():
+			results[key] = value
+			
+			
+		
+
+		
+	
+		return results
+	
+	@classmethod
+	def aggregate_chart(cls,location,periods):
+		#hp = HealthPost.list_by_location(location)
+		health_posts = HealthPost.list_by_location(location)
+		hp=[]
+		for healthpost in health_posts:
+			if healthpost.location_type=="health post":
+				hp.append(healthpost)
+		
+		results = SortedDict()
+		otp_reports = Entry.objects.filter(report_period=periods, health_post__in=hp)
+#		if otp_reports.count() == len(hp) * len(periods):
+#			results['complete'] = True
+#		else:
+#			results['complete'] = False
+
+		#mush check if the data is complete
+		results['complete'] = True 
+		
+		for key in ['nadm','cured','died','defaulted','nresp','medt','tfpt', 'total_exit']:
+			results[key] = None
+	
+		q = Entry.objects.filter(report_period=periods, health_post__in=hp).aggregate(nadm=Sum('new_admission'),
+										cured=Sum('cured'),
+										died=Sum('died'),
+										defaulted=Sum('defaulted'),
+										nresp=Sum('non_responded'),
+										medt=Sum('medical_transfer'),
+										tfpt=Sum('tfp_transfer'))
+		sum = Entry.objects.filter(report_period=periods, health_post__in=hp).extra(
+							select = {'total_exits': 'SUM(cured + died + defaulted + non_responded + medical_transfer + tfp_transfer)'},)
+		
+		for key,value in q.items():
+			results[key] = value
+			
+			
+		results['total_exit'] = sum[0].total_exits
+
+		
+		try:
+			entry = Entry.objects.filter(report_period=periods,health_post__in=hp).order_by('report_period')
+			
+			results['nadm'] = "Actual Ad. %s, Remaining %s" %(
+													results['total_exit'] + entry[0].get_total_remaining(),
+													entry[0].get_total_remaining())
+			results['nadm'] = results['total_exit'] + entry[0].get_total_remaining()
+		except:
+			results['nadm'] = 11
+	
 		return results
 	
 	
