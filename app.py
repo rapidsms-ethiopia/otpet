@@ -1,6 +1,6 @@
 import rapidsms
 import re
-from datetime import date, datetime
+from datetime import datetime
 from strings import ENGLISH as STR
 
 from django.core.management import setup_environ
@@ -182,27 +182,28 @@ class App (AppBase):
             # entry with this code
             entry = Entry.objects.filter(
                     otp_reporter=otp_reporter,\
-                    supply_place__location__code=code)\
-                    .order_by('-time')[0]
+                    health_post__code=code,
+                    entry_time__range=current_reporting_period())\
+                    .order_by('-entry_time')[0]
 
             # delete it and notify
             entry.delete()
             message.respond(STR["cancel_code_ok"] % (code))
 
         except (ObjectDoesNotExist, IndexError):
-            try:
-                # try again for woreda code
-                entry = Entry.objects.filter(
-                        otp_reporter=otp_reporter,\
-                        supply_place__area__code=code)\
-                        .order_by('-time')[0]
+#            try:
+#                # try again for woreda code
+#                entry = Entry.objects.filter(
+#                        otp_reporter=otp_reporter,\
+#                        supply_place__area__code=code)\
+#                        .order_by('-time')[0]
+#
+#                # delete it and notify
+#                entry.delete()
+#                message.respond(STR["cancel_code_ok"] % (code))
 
-                # delete it and notify
-                entry.delete()
-                message.respond(STR["cancel_code_ok"] % (code))
-
-            except (ObjectDoesNotExist, IndexError):
-                message.respond(STR["cancel_none"])
+#            except (ObjectDoesNotExist, IndexError):
+            message.respond(STR["cancel_none"])
 
     @kw.blank()
     def cancel(self, message):
@@ -241,7 +242,7 @@ class App (AppBase):
     def help_report(self, message):
         message.respond(STR["help_report"])
     
-    @kw("register", "identify")
+    @kw("register", "identify") 
     def help_report(self, message):
         message.respond(STR["help_reg"])
     
@@ -252,89 +253,161 @@ class App (AppBase):
     @kw.invalid()
     def help_help(self, message, *msg):
         message.respond(STR["help_help"])
+        
+    kw.prefix = ["otp","pp"]
+    @kw(r'(\w+) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers)[,\.\s]*')
+    def rept(self,message, place_code,na="",cu="", die="", df="", nr="", mt="", tt=""):
+        #message.respond("%s %s %s %s %s %s %s %s" %(place_code,na,cu,die,df,nr,mt,tt))
+        start_date,end_date = current_reporting_period()#ReportPeriod.weekboundaries_from_day(datetime.datetime.today())#current_reporting_period()
+        caller = message.connection.identity
+        otp_reporter = self.__identify(message, "reporting")
+        #otp_reporter = self.__identity(message,"reporting")
+        otpreporter = otp_reporter
+        #message.respond("from %s to %s " %(start_date,end_date))
+        loc= None
+        pcu = place_code.upper()
+        #message.respond("%s" %(pcu))
+        loc = self.__get(HealthPost, code = pcu)
+        if loc is None:
+            message.respond(STR["unknown"]\
+                %("Health Post, Woreda, or Zone code", pcu))
+        
+                
+        try:
+            #if there is a duplicate, it is assumed correction.
+            e = Entry.objects.filter(otp_reporter=otp_reporter,entry_time__range=(start_date,end_date),health_post=loc).order_by('-entry_time')[0]
+            if e is not None:
+                e.delete()
+                period = get_or_generate_reporting_period()
+                Entry.objects.create(otp_reporter=otpreporter,
+                                     health_post = loc,
+                                     new_admission = na,
+                                     cured=cu,
+                                     died=die,
+                                     defaulted=df,
+                                     non_responded=nr,
+                                     medical_transfer=mt,
+                                     tfp_transfer=tt,
+                                     report_period=period)
+        except(ObjectDoesNotExist,IndexError):
+            period = get_or_generate_reporting_period()
+            Entry.objects.create(otp_reporter=otpreporter,
+                                 health_post = loc,
+                                 new_admission = na,
+                                 cured=cu,
+                                 died=die,
+                                 defaulted=df,
+                                 non_responded=nr,
+                                 medical_transfer=mt,
+                                 tfp_transfer=tt,
+                                 report_period=period)
+            
+        info = ["admission=%s" % (na or "??"),
+                "cured=%s" % (cu or "??"),
+                "died=%s" % (die or "??"),
+                "defaulted=%s" % (df or "??"),
+                "non respondent=%s" % (nr or "??"),
+                "medical transfer=%s" % (mt or "??"),
+                "tfp transfer=%s" % (tt or "??")]
+        
+        if loc is not None:
+            last_report = Entry.objects.filter(otp_reporter=otp_reporter,
+                                               health_post = loc,
+                                               new_admission=na,
+                                               cured = cu,
+                                               died = die,
+                                               defaulted = df,
+                                               non_responded=nr,
+                                               medical_transfer =mt,
+                                               tfp_transfer=tt).order_by('-report_period__id')[0]
+            receipt = last_report.receipt
+            message.respond("Received OTP Report for %s by %s: %s. If this is not correct, reply with CANCEL %s. Receipt No.=%s" %\
+                (loc,otp_reporter,", ".join(info),loc,receipt))
+            
+    
+            
+    @kw.invalid()
+    def help_report(self, message, *msg):
+        message.respond("OTP REPORT ERROR : " + STR["help_report"])
+                
+        
+        
+#        message.respond("check Duplicate...")
+#        message.respond("date range is.. from %s to %s" %(start_date,end_date))
+#        message.respond("%s %s %s %s %s %s %s %s %s--%s" %(otpreporter,place_code,na,cu,die,df,nr,mt,tt,loc))
+        
+        
+        
+    
 
-    kw.prefix = ["otp","opt"]
-    @kw(r'(\w+) (numbers) (numbers) (numbers) (numbers)'\
-			' (numbers) (numbers) (numbers)[,\.\s]*')
-    def rept(self, message, place_code, na="", cu="", die="", df="", nr="", mt="", tt=""):
-		# ensure that the caller is known
-		caller = message.connection.identity
-		otp_reporter = self.__identify(message, "reporting")
-		otpreporter = otp_reporter
+    kw.prefix = ["otpp","opt"]
+    @kw(r'(\w+) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers)[,\.\s]*')
+    def report(self, message, place_code, na="", cu="", die="", df="", nr="", mt="", tt=""):
+        start_date,end_date = ReportPeriod.weekboundaries_from_day(datetime.datetime.today())#current_reporting_period()
+        message.respond("__")
+        otp_reporter = self.__identity(message,"reporting")
+        otpreporter = otp_reporter
+        message.respond("__")
+        message.respond("from %s to %s " %(start_date,end_date))
+        message.respond("__")
 		#???validate each input if the reports are numbers
 		#???new admission > total of the rest
 		#some how it is allowing for unregistered phone...        
 		# init variables to avoid
-		# pythonic complaints		
-		loc = None
-		#pcu = place_code.upper()
-		pcu = place_code
-		message.respond("%s" %(pcu))
-        # check if the place code exists, which could
-        # be either a location or area
-		loc = self.__get(HealthPost, code=pcu)
-		message.respond("%s - %s >> %s" %(otp_reporter,pcu,loc))
-		if loc is None:
-			message.respond(STR["unknown"]\
-				% ("Health Post, Woreda, or Zone code", pcu))      
-		start_date, end_date = current_reporting_period()
-		#message.respond("from %s to %s " %(start_date,end_date))
-		message.respond("check duplicate")
-		try:
-			e = Entry.objects.filter(otp_reporter=otp_reporter,entry_time__range=(start_date,end_date)).order_by('-entry_time')[0]
-			#entry=IndexError
-			
-			if e is not None:
-				e.new_admission = na
-				e.cured = cu
-				e.died = die
-				e.defaulted = df
-				e.non_responded = nr
-				e.medical_transfer = mt
-				e.tfp_transfer = tt
-				e.save()
-		except(ObjectDoesNotExist, IndexError):
-			period = get_or_generate_reporting_period()
-			Entry.objects.create(
-							otp_reporter = otpreporter,
-							health_post=loc,
-							new_admission = na,
-							cured = cu,died = die,
-							defaulted=df,
-							non_responded = nr,
-							medical_transfer = mt,
-							tfp_transfer = tt,
-							report_period=period)
-		info = [
-		"admission=%s" % (na or "??"),
-		"cured=%s" % (cu or "??"),
-		"died=%s" % (die or "??"),
-		"defaulted=%s" % (df or "??"),
-		"non respondent=%s" % (nr or "??"),
-		"medical transfer=%s" % (mt or "??"),
-		"tfp transfer=%s" % (tt or "??")]
-	
-        #message.respond(",".join(info))
-        # notify the caller of their new entry
-        # this doesn't seem to be localizable
-		if loc is not None:
-			last_report = Entry.objects.filter(
-				otp_reporter=otp_reporter,
-				health_post=loc,
-				new_admission = na,
-				cured = cu,
-				died = die,
-				defaulted=df,
-				non_responded = nr,
-				medical_transfer = mt,
-				tfp_transfer = tt).order_by('-report_period__id')[0]
-			
-			
-			receipt = last_report.receipt
-			
-			message.respond(
-				"Received OTP report for %s by %s: %s.If this is not correct, reply with CANCEL %s. Receipt Number=%s" %\
-				(loc,otp_reporter,", ".join(info),loc,receipt))
+		# pythonic complaints	
+        loc= None
+        pcu = place_code
+        message.respond("%s" %(pcu))
+        loc = self.__get(HealthPost, code = pcu)
+        messge.respond("%s - %s --> %s" % (otp_reporter, pcu, loc))
+        if loc is None:
+            message.respond(STR["unknown"])\
+                %("Health Post, Woreda, or Zone code", pcu)
+        message.respond("check Duplicate...")
+        try:
+            e = Entry.objects.filter(otp_reporter=otp_reporter,entry_time__range=(start_date,end_date)).order_by('-entry_time')[0]
+            if e is not None:
+                e.new_admission = na
+                e.cured = cu
+                e.died = die
+                e.defaulted = df
+                e.non_responded = nr
+                e.medical_transfer = mt
+                e.tfp_transfer = tt
+                e.save()
+        except(ObjectsDoesNotExist, IndexError):
+            period = get_or_generate_reporting_period()
+            Entry.objects.create(otp_reporter=otpreporter,
+                                 health_post = loc,
+                                 new_admission = na,
+                                 cured=cu,
+                                 died=die,
+                                 defaulted=df,
+                                 non_responded=nr,
+                                 medical_transfer=mt,
+                                 tfp_transfer=tt,
+                                 report_period=period)
+        info = ["admission=%s" % (na or "??"),
+                "cured=%s" % (cu or "??"),
+                "died=%s" % (die or "??"),
+                "defaulted=%s" % (df or "??"),
+                "non respondent=%s" % (nr or "??"),
+                "medical transfer=%s" % (mt or "??"),
+                "tfp transfer=%s" % (tt or "??")]
+        
+        if loc is not None:
+            last_report = Entry.objects.filter(otp_reporter=otp_reporter,
+                                               health_post = loc,
+                                               new_admission=na,
+                                               cured = cu,
+                                               died = die,
+                                               defaulted = df,
+                                               non_responded=nr,
+                                               medical_transfer =mt,
+                                               tfp_transfer=tt).order_by('-report_period__id')[0]
+            receipt = last_report.receipt
+            message.respond("Received OTP Report for %s by %s: %s. If this is not correct, reply with CANCEL %s. Receipt No.=%s" %\
+                (loc,otp_reporter,", ".join(info),loc,receipt))
         
     @kw.invalid()
     def help_report(self, message, *msg):
