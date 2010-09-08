@@ -5,4 +5,18 @@
 <link type="text/css" rel="stylesheet" href="otp/stylesheets/base.css" />
 {% endblock %}
 
+{% block page_tabs %}
+<ul id="page-tabs">
+<<!--li class="page"><a href="/otp">Dashboard</a></li>-->
+	<li class="page"><a href="/otp/reports">Reports</a></li>
+	<li class="page"><a href="/otp/otpreports">OTP Reports</a></li>
+	<li class="page"><a href="/otp/otpchart">Chart</a></li>
+	<li class="page"><a href="/otp/health_posts">Health Posts</a></li>
+	<li class="page"><a href="/otp/health_workers">Health Workers</a></li>
+	
+	
+	
+</ul>
+{% endblock %}
+
 {% block title %}OTP Dashboard home - {{ block.super }}{% endblock %}

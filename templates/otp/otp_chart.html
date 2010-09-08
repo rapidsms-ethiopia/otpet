@@ -2,10 +2,10 @@
 {% block subtitle %}Reports{% endblock %}
 
 {% block content %}
-<form method="GET" action="/otp/report"
+<form method="GET" action="/otp/report.png"
 <table>
     <tr>
-        <td>Report Type: OTP REPORT</td>
+        <td>Report Type: OTP Chart</td>
         
     </tr>
     <tr>
@@ -41,9 +41,16 @@
             </select>
         </td>
     </tr>
-    
     <tr>
-        <td colspan="2" style="text-align:center"><input type="submit" value="Generate Report"/></td>
+        <td>Select</td>
+        <td>
+            <select name="hp">
+                <option value="6" selected="selected">6</option>
+            </select>
+        </td>
+    </tr>
+    <tr>
+        <td colspan="2" style="text-align:center"><input type="submit" value="Generate Chart"/></td>
         
     </tr>
 </table>

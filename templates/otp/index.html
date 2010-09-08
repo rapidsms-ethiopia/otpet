@@ -5,17 +5,19 @@
 <link type="text/css" rel="stylesheet" href="{{ MEDIA_URL }}otpet/stylesheets/dashboard.css" />
 {% endblock %}
 
-{% block page_tabs %}
+<!--{% block page_tabs %}
 <ul id="page-tabs">
 	<li class="page"><a href="/otp/reports">Reports</a></li>
+	
 	<li class="page"><a href="/otp/otpreports">OTP Reports</a></li>
+	<li class="page"><a href="/otp/otpchart">Chart</a></li>
 	<li class="page"><a href="/otp/health_posts">Health Posts</a></li>
 	<li class="page"><a href="/otp/health_workers">Health Workers</a></li>
 	
 	
 	
 </ul>
-{% endblock %}
+{% endblock %}-->
 
 
 
@@ -23,13 +25,19 @@
 
 {% block left %}
 
-<div class="module"><h3>Summary ({{ summary.percent }}% Complete)</h3>
-    <div style="padding:5px;"> 
+<div class="module" overflow="hidden"><h3>Summary ({{ summary.percent }}% Complete)</h3>
+
+    <div style="padding:5px;" width="50%"> 
         <p>The current weekly report period is: <br/>
         <strong>{{ summary.period.start_date|date:"D d/m/Y" }} - {{ summary.period.end_date|date:"D d/m/Y" }}</strong></p>
+        
         <p><a href="../../otp/health_posts"><strong>{{ summary.health_posts }}</strong> Health Posts</a> are registered.<br/>
         <a href="health_units/?filter=current"><strong>{{ summary.completed }}</strong> health Post{{ summary.completed|pluralize }}</a> ha{{ summary.completed|pluralize:"s,ve" }} completed the report for this period.<br/>
         <a href="health_units/?filter=missing"><strong>{{ summary.missing }}</strong> health Post{{ summary.missing|pluralize }}</a> ha{{ summary.missing|pluralize:"s,ve" }} <strong>NOT</strong> completed the report for this period.</p>
+    </div><br style="clear:both;"/>
+    
+    <div width="40%">
+    <img src="pie.png" alt="reports pie"/>
     </div>
 </div>
 {% endblock %}
@@ -71,7 +79,7 @@
 
 <div class="module"><h3>SMS Alerts..</h3>
 
-<img src="simple.png" alt="Simple graph" width="650px" height="650px"/>
+<img src="reports.png" alt="Simple graph" width="650px" height="650px"/>
 
 
 </div>
