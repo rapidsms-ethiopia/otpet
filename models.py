@@ -451,9 +451,9 @@ class Entry(models.Model):
 			
 		
 
-		if len(periods)>0:
-			try:
-				entry = Entry.objects.filter(report_period__in=periods,health_post__in=hp).order_by('report_period')
+#		if len(periods)>0:
+#			try:
+#				entry = Entry.objects.filter(report_period__in=periods,health_post__in=hp).order_by('report_period')
 				#lentry = Entry.objects.filter(report_period__start_date=periods[0].start_date,health_post__in=hp)
 #				results['Begining'] = entry[0].new_admission - entry[0].get_actual_admission()
 #				results['New Admission'] = entry[0].get_actual_admission()
@@ -463,9 +463,9 @@ class Entry(models.Model):
 #														entry[0].get_actual_admission(),
 #														sum.total_exits + entry[0].get_total_remaining(),
 #														entry[0].get_total_remaining())
-				results['nadm'] = sum.total_exits + entry[0].get_total_remaining()
-			except:
-				results['nadm'] = ''
+#				results['nadm'] = sum.total_exits + entry[0].get_total_remaining()
+#			except:
+#				results['nadm'] = ''
 	
 		return results
 	
@@ -486,24 +486,24 @@ class Entry(models.Model):
 		else:
 			results['complete'] = False
 			
-		for key in ['Begining', 'New_Admission','nadm','cured','died','defaulted','nresp','medt','tfpt', 'Ending']:
+		for key in ['nadm','cured','died','defaulted','nresp','medt','tfpt']:
 			results[key] = None	
 		
-		if len(periods)>0:
-			try:
-				entry = Entry.objects.filter(report_period__in=periods,health_post__in=hp).order_by('report_period')
-				#lentry = Entry.objects.filter(report_period__start_date=periods[0].start_date,health_post__in=hp)
-				results['Begining'] = entry[0].new_admission - entry[0].get_actual_admission()
-				results['New_Admission'] = entry[0].get_actual_admission()
-				results['Ending'] = entry[0].get_total_remaining()
-#				results['nadm'] = "[Beg. %s] [Actual Ad. %s ]\n [Tot. Ad. %s]\n  [Ending %s]" %(
-#														entry[0].new_admission - entry[0].get_actual_admission(),
-#														entry[0].get_actual_admission(),
-#														sum.total_exits + entry[0].get_total_remaining(),
-#														entry[0].get_total_remaining())
-				results['nadm'] = sum.total_exits + entry[0].get_total_remaining()
-			except:
-				results['nadm'] = ''
+#		if len(periods)>0:
+#			try:
+#				entry = Entry.objects.filter(report_period__in=periods,health_post__in=hp).order_by('report_period')
+#				#lentry = Entry.objects.filter(report_period__start_date=periods[0].start_date,health_post__in=hp)
+#				results['Begining'] = entry[0].new_admission - entry[0].get_actual_admission()
+#				results['New_Admission'] = entry[0].get_actual_admission()
+#				results['Ending'] = entry[0].get_total_remaining()
+##				results['nadm'] = "[Beg. %s] [Actual Ad. %s ]\n [Tot. Ad. %s]\n  [Ending %s]" %(
+##														entry[0].new_admission - entry[0].get_actual_admission(),
+##														entry[0].get_actual_admission(),
+##														sum.total_exits + entry[0].get_total_remaining(),
+##														entry[0].get_total_remaining())
+#				results['nadm'] = sum.total_exits + entry[0].get_total_remaining()
+#			except:
+#				results['nadm'] = ''
 				
 		
 	
@@ -556,25 +556,25 @@ class Entry(models.Model):
 										nresp=Sum('non_responded'),
 										medt=Sum('medical_transfer'),
 										tfpt=Sum('tfp_transfer'))
-		sum = Entry.objects.filter(report_period=periods, health_post__in=hp).extra(
-							select = {'total_exits': 'SUM(cured + died + defaulted + non_responded + medical_transfer + tfp_transfer)'},)
+#		sum = Entry.objects.filter(report_period=periods, health_post__in=hp).extra(
+#							select = {'total_exits': 'SUM(cured + died + defaulted + non_responded + medical_transfer + tfp_transfer)'},)
 		
 		for key,value in q.items():
 			results[key] = value
 			
 			
-		results['total_exit'] = sum[0].total_exits
-
-		
-		try:
-			entry = Entry.objects.filter(report_period=periods,health_post__in=hp).order_by('report_period')
-			
-			results['nadm'] = "Actual Ad. %s, Remaining %s" %(
-													results['total_exit'] + entry[0].get_total_remaining(),
-													entry[0].get_total_remaining())
-			results['nadm'] = results['total_exit'] + entry[0].get_total_remaining()
-		except:
-			results['nadm'] = 11
+#		results['total_exit'] = sum[0].total_exits
+#
+#		
+#		try:
+#			entry = Entry.objects.filter(report_period=periods,health_post__in=hp).order_by('report_period')
+#			
+#			results['nadm'] = "Actual Ad. %s, Remaining %s" %(
+#													results['total_exit'] + entry[0].get_total_remaining(),
+#													entry[0].get_total_remaining())
+#			results['nadm'] = results['total_exit'] + entry[0].get_total_remaining()
+#		except:
+#			results['nadm'] = 11
 	
 		return results
 	
