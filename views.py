@@ -45,19 +45,48 @@ def simple(request):
     from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
     from matplotlib.figure import Figure
     from matplotlib.dates import DateFormatter
+    
+    
 
     fig=Figure()
     ax=fig.add_subplot(111)
-    x=[datetime.now()+timedelta(days=2),datetime.now()+timedelta(days=4),
-	datetime.now()+timedelta(days=6),datetime.now()+timedelta(days=8),datetime.now()+timedelta(days=12)]
-    y=[222,0,22,333,33]
+    x=[]
+    x1=[]
+    x2=[]
+    x3=[]
+    x4=[]
+    x5=[]
+    y=[]
+    y1=[]
+    y2=[]
+    y3=[]
+    y4=[]
+    y5=[]
+    
     now=datetime.now()
-    delta=timedelta(days=2)
-#    for i in range(2):
-#        x.append(now)
-#        now+=delta
-#        y.append(random.randint(0, 1000))
-    ax.plot_date(x, y, '-')
+    delta=timedelta(days=7)
+    for i in range(13):
+        x.append(now)
+        x1.append(now)
+        x2.append(now)
+        x3.append(now)
+        x4.append(now)
+        x5.append(now)
+        now+=delta
+        y.append(random.randint(0, 1000))
+        y1.append(random.randint(0, 1000))
+        y2.append(random.randint(0, 1000))
+        y3.append(random.randint(0, 1000))
+        y4.append(random.randint(0, 1000))
+        y5.append(random.randint(0, 1000))
+        
+    ax.plot_date(x1, y1,'-')
+    ax.plot_date(x, y,'-')
+    ax.plot_date(x2, y2,'-')
+    ax.plot_date(x3, y3,'-')
+    ax.plot_date(x4, y4,'-')
+    ax.plot_date(x5, y5,'-')
+    
     ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
     fig.autofmt_xdate()
     canvas=FigureCanvas(fig)
@@ -68,53 +97,352 @@ def simple(request):
 
 @login_required
 @define_scope
+def hp_chart(request, scope, healthpostid):
+    
+    import random
+    
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    from matplotlib.dates import DateFormatter
+    
+    
+
+    fig=Figure()
+    ax=fig.add_subplot(111)
+    
+    
+    
+    
+    
+    #set initial...
+   
+        
+    
+    
+    
+    try:
+        start_period = ReportPeriod.objects.get(
+                    pk=request.GET.get('start', ReportPeriod.objects.latest().id))
+    except (ReportPeriod.DoesNotExist, ValueError):
+        start_period = ReportPeriod.objects.latest()
+    try:
+        end_period = ReportPeriod.objects.get(pk=request.GET.get('end',
+                                                             start_period.id))
+    except (ReportPeriod.DoesNotExist, ValueError):
+        end_period = start_period
+
+#    periods = ReportPeriod.list_from_boundries(start_period, end_period)
+    periods = ReportPeriod.objects.all().order_by('id')
+    
+#    if len(periods) == 1:
+#        dates = {'start': periods[0].start_date, 'end': periods[0].end_date}
+#        start_date = periods[0].start_date
+#    elif len(periods) > 1:
+#        dates = {'start': periods.reverse()[0].start_date,
+#                 'end': periods[0].end_date}
+#        start_date = periods.reverse()[0].start_date
+
+    grp = request.GET.get('grp')
+    healthpost_id = healthpostid
+    cls = Entry
+
+    report_title = cls.TITLE
+    rows = []
+    count={}
+    
+
+    now=start_date #datetime.now()
+    x=[]
+    nadm = []
+    cured = []
+    died = []
+    defaulted = []
+    nresp = []
+    medt = []
+    tfpt = []
+    
+           
+    
+    for i in range(len(periods)):
+#        x.append(start_date)
+        x.append(periods.reverse()[i].start_date)
+        #x2.append(periods.reverse()[i].start_date)
+        results = cls.aggregate_chart(HealthPost.objects.get(id=healthpost_id),periods[i])
+        nadm.append(results['nadm'])
+        cured.append(results['cured'])
+        died.append(results['died'])
+        defaulted.append(results['defaulted'])
+        nresp.append(results['nresp'])
+        medt.append(results['medt'])
+        tfpt.append(results['tfpt'])
+#        row['complete'] = results.pop('complete')
+#        for value in results.values():
+#            row['cells'].append({'value':value})
+#        rows.append(row)
+#        y.append(random.randint(0, 1000))
+        
+#        y.append(rows[0]['cells'][0]['value'])
+#        y.append(i+1)
+    #ax.axis(ymin=0)
+        
+    ax.plot_date(x, nadm, '-', label="New Admission")
+    ax.plot_date(x, cured, '-')
+    ax.plot_date(x, died, '-')
+    ax.plot_date(x, defaulted, '-')
+    ax.plot_date(x, nresp, '-')
+    ax.plot_date(x, medt, '-')
+    ax.plot_date(x, tfpt, '-')
+    ax.grid(True)
+    ax.legend()
+#    ax.axvline(ymin=0)
+#    ax.axis([ymin=0])
+   
+    ax.xaxis.set_major_formatter(DateFormatter('%d-%m-%Y'))
+    fig.autofmt_xdate()
+    canvas=FigureCanvas(fig)
+    response=HttpResponse(content_type='image/png')
+    canvas.print_png(response)
+    return response
+
+
+
+@login_required
+@define_scope
+def report_chart(request, scope):
+    
+    import random
+    
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    from matplotlib.dates import DateFormatter
+    
+    
+
+    fig=Figure()
+    ax=fig.add_subplot(111)
+    
+    
+    
+    
+    
+    #set initial...
+   
+        
+    
+    
+    
+    try:
+        start_period = ReportPeriod.objects.get(
+                    pk=request.GET.get('start', ReportPeriod.objects.latest().id))
+    except (ReportPeriod.DoesNotExist, ValueError):
+        start_period = ReportPeriod.objects.latest()
+    try:
+        end_period = ReportPeriod.objects.get(pk=request.GET.get('end',
+                                                             start_period.id))
+    except (ReportPeriod.DoesNotExist, ValueError):
+        end_period = start_period
+
+    periods = ReportPeriod.list_from_boundries(start_period, end_period)
+    
+    if len(periods) == 1:
+        dates = {'start': periods[0].start_date, 'end': periods[0].end_date}
+        start_date = periods[0].start_date
+    elif len(periods) > 1:
+        dates = {'start': periods.reverse()[0].start_date,
+                 'end': periods[0].end_date}
+        start_date = periods.reverse()[0].start_date
+
+    grp = request.GET.get('grp')
+    healthpost_id = request.GET.get('hp')
+
+    cls = Entry
+
+    report_title = cls.TITLE
+    rows = []
+    count={}
+    
+
+    now=start_date #datetime.now()
+    x=[]
+    nadm = []
+    cured = []
+    died = []
+    defaulted = []
+    nresp = []
+    medt = []
+    tfpt = []
+    
+           
+    
+    for i in range(len(periods)):
+#        x.append(start_date)
+        x.append(periods.reverse()[i].start_date)
+        #x2.append(periods.reverse()[i].start_date)
+        results = cls.aggregate_chart(HealthPost.objects.get(id=healthpost_id),periods[i])
+        nadm.append(results['nadm'])
+        cured.append(results['cured'])
+        died.append(results['died'])
+        defaulted.append(results['defaulted'])
+        nresp.append(results['nresp'])
+        medt.append(results['medt'])
+        tfpt.append(results['tfpt'])
+#        row['complete'] = results.pop('complete')
+#        for value in results.values():
+#            row['cells'].append({'value':value})
+#        rows.append(row)
+#        y.append(random.randint(0, 1000))
+        
+#        y.append(rows[0]['cells'][0]['value'])
+#        y.append(i+1)
+    #ax.axis(ymin=0)
+        
+    ax.plot_date(x, nadm, '-', label="New Admission")
+    ax.plot_date(x, cured, '-')
+    ax.plot_date(x, died, '-')
+    ax.plot_date(x, defaulted, '-')
+    ax.plot_date(x, nresp, '-')
+    ax.plot_date(x, medt, '-')
+    ax.plot_date(x, tfpt, '-')
+    ax.grid(True)
+    ax.legend()
+#    ax.axvline(ymin=0)
+#    ax.axis([ymin=0])
+   
+    ax.xaxis.set_major_formatter(DateFormatter('%d-%m-%Y'))
+    fig.autofmt_xdate()
+    canvas=FigureCanvas(fig)
+    response=HttpResponse(content_type='image/png')
+    canvas.print_png(response)
+    return response
+
+    
+@login_required
+@define_scope
+def reports_pie(request,scope):
+   
+#    fig=Figure()
+#    #plt.figure(figsize=(3,3))
+#    x = [6,6]
+#    labels = ['Complete', 'incomplete']
+#    ax=fig.add_subplot(111)
+#    ax.pie(x,labels=labels)
+#    canvas=FigureCanvas(fig)
+#    response=HttpResponse(content_type='image/png')
+#    canvas.print_png(response)
+#    return response
+
+    from pylab import *
+    #import random
+    
+    from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+    from matplotlib.figure import Figure
+    #from matplotlib.dates import DateFormatter
+    
+    
+    if datetime.today().weekday() == 6:
+        period = ReportPeriod.objects.latest()
+    else:
+        period = ReportPeriod.from_day(datetime.today())
+        #period = ReportPeriod.weekboundaries_from_day(datetime.today())
+    
+    #summary['periodid'] = ReportPeriod.weekboundaries_from_day(datetime.today()).id
+    #healthposts = len(scope.health_posts())
+    completed = len(scope.current_entries())
+    incomplete = len(scope.health_posts()) - len(scope.current_entries())
+    #summary['percent'] = round(float(len(scope.current_entries())) / float(len(scope.health_posts())) * 100.0)
+    #summary['up2date'] = len(filter(lambda hc: hc.up2date(),
+
+    fig = Figure()
+    ax=fig.add_subplot(111, axisbg='r')
+    fig.set_figheight(2)
+    fig.set_figwidth(2)
+    fig.set_facecolor('w')
+    #fig=figure(1, figuresize=(3,3))
+    #ax = axes([0.2,0.2,0.8,0.8])
+    labels = 'Completed', 'Incomlete'
+    fracs = [completed,incomplete]
+    explode=(0,0.01)
+    pie(fracs, explode=explode, labels=None,colors=('g','r'), autopct='%1.1f%%', shadow=True)
+    title('Reports..', bbox={'facecolor':'0.5', 'pad':5})
+    ax.pie(fracs, explode=explode, labels=None,colors=('#52E060','#F7976E'), autopct='%1.1f%%', shadow=True)
+    #ax.xaxis.set_major_formatter(DateFormatter('%Y-%m-%d'))
+    #fig.autofmt_xdate()
+    canvas=FigureCanvas(fig)
+    response=HttpResponse(content_type='image/png')
+    canvas.print_png(response)
+    return response
+
+
+@login_required
+@define_scope
 def index(request,scope):
-	'''Display home page / Dashboard'''
-	summary = {}
-	if datetime.today().weekday() == 6:
-		period = ReportPeriod.objects.latest()
-	else:
-		period = ReportPeriod.from_day(datetime.today())
-		#period = ReportPeriod.weekboundaries_from_day(datetime.today())
-	summary['period'] = period
-	#summary['periodid'] = ReportPeriod.weekboundaries_from_day(datetime.today()).id
-	summary['health_posts'] = len(scope.health_posts())
-	summary['completed'] = len(scope.current_entries())
-	summary['missing'] = len(scope.health_posts()) - len(scope.current_entries())
-	summary['percent'] = round(float(len(scope.current_entries())) / float(len(scope.health_posts())) * 100.0)
+    '''Display home page / Dashboard'''
+    summary = {}
+    if datetime.today().weekday() == 6:
+        period = ReportPeriod.objects.latest()
+    else:
+        period = ReportPeriod.from_day(datetime.today())
+        #period = ReportPeriod.weekboundaries_from_day(datetime.today())
+    summary['period'] = period
+    #summary['periodid'] = ReportPeriod.weekboundaries_from_day(datetime.today()).id
+    summary['health_posts'] = len(scope.health_posts())
+    summary['completed'] = len(scope.current_entries())
+    summary['missing'] = len(scope.health_posts()) - len(scope.current_entries())
+    try:
+        summary['percent'] = round(float(len(scope.current_entries())) / float(len(scope.health_posts())) * 100.0)
+    except:
+        summary['percent'] = 0
     #summary['up2date'] = len(filter(lambda hc: hc.up2date(),
     #                                           scope.health_units()))
     #summary['missing'] = summary['total_units'] - summary['up2date']
 
 	
-	entries = scope.current_entries()
+    entries = scope.current_entries()
 	#Entry.objects.all()
-	if entries:	
-		all = []
-		for entry in entries:
-			ent={}
-			ent['pk'] = entry.pk
-			ent['otp_reporter'] = entry.otp_reporter
-			ent['health_post'] = entry.health_post
-			ent['hp_pk'] = entry.health_post.pk
-			ent['new_admission'] = entry.new_admission
-			ent['cured'] = entry.cured
-			ent['died'] = entry.died
-			ent['defaulted'] = entry.defaulted
-			ent['non_responded'] = entry.non_responded
-			ent['medical_transfer'] = entry.medical_transfer
-			ent['tfp_transfer'] = entry.tfp_transfer
-			ent['entry_time'] = convertToHumanReadable(entry.entry_time)
-			all.append(ent)
-			table = EntryTable(all, order_by=request.GET.get('sort'))
-		return render_to_response('otp/index.html',{"ent" : ent, "summary" : summary, "table": table },context_instance=RequestContext(request))
-	else:
-		return render_to_response('otp/index.html',{"summary" : summary },context_instance=RequestContext(request))
+    if entries:	
+        all = []
+        for entry in entries:
+            ent={}
+            ent['pk'] = entry.pk
+            ent['otp_reporter'] = entry.otp_reporter
+            ent['health_post'] = entry.health_post
+            ent['hp_pk'] = entry.health_post.pk
+            ent['new_admission'] = entry.new_admission
+            ent['cured'] = entry.cured
+            ent['died'] = entry.died
+            ent['defaulted'] = entry.defaulted
+            ent['non_responded'] = entry.non_responded
+            ent['medical_transfer'] = entry.medical_transfer
+            ent['tfp_transfer'] = entry.tfp_transfer
+            ent['entry_time'] = convertToHumanReadable(entry.entry_time)
+            all.append(ent)
+            table = EntryTable(all, order_by=request.GET.get('sort'))
+        return render_to_response('otp/index.html',{"ent" : ent, "summary" : summary, "table": table },context_instance=RequestContext(request))
+    else:
+        return render_to_response('otp/index.html',{"summary" : summary },context_instance=RequestContext(request))
 	
 	
+@login_required
+@define_scope
+def charts_view(request, scope):
+    ''' Show available reports '''
+
+    return render_to_response('otp/otp_chart.html',
+                              {'scope': scope,
+                               'periods': ReportPeriod.objects.all()},
+                               context_instance=RequestContext(request))
+    	
 	
-	
-	
+
+    
+@login_required
+@define_scope
+def chart_view(request, scope):
+    ''' Show available reports '''
+
+    return render_to_response('otp/chart.html',
+                              {'scope': scope},
+                               context_instance=RequestContext(request))
 	
 	
 	
@@ -132,9 +460,7 @@ def reports_view(request, scope):
     
 @login_required
 @define_scope
-def report_view(request, scope):
-	
-    
+def report_view(request, scope):  
     try:
         start_period = ReportPeriod.objects.get(
                     pk=request.GET.get('start', ReportPeriod.objects.latest().id))
@@ -182,6 +508,7 @@ def report_view(request, scope):
             row['cells'].append({'value': unicode(group)})
             results = (cls.aggregate_report(group, periods))
             row['complete'] = results.pop('complete')
+            
             for value in results.values():
                 row['cells'].append({'value': value, 'num': True})
             
@@ -295,7 +622,50 @@ def healthposts_view(request,scope):
 @login_required
 def healthpost_view(request, healthpost_id):
     ''' Displays a summary of location activities and history '''
-    return render_to_response('otp/health_post.html',context_instance=RequestContext(request))
+    health_post = HealthPost.objects.get(id=healthpost_id)
+    reporters = OTPReporter.objects.filter(location=health_post.location_ptr)
+    all = []
+    for reporter in reporters:
+        rep={}
+        rep['alias'] = reporter.alias
+        rep['name'] = reporter.full_name().title()
+        all.append(rep)
+        
+    periods = ReportPeriod.objects.all().order_by('-end_date')
+    
+    columns = [{'name': 'Period'}, 
+               #{'name': 'To'}, 
+#               {'name': 'Begining Balance'}, 
+#               {'name': 'New Admission'}, 
+               {'name': 'New Admissions'}, 
+               {'name': 'Cured'},
+               {'name': 'Death'}, 
+                {'name': 'Defaulter'}, 
+                {'name': 'Non Respondents'}, 
+                {'name': 'Medical Transfer'}, 
+                {'name': 'Transfered to TFP'},
+#                {'name': 'End Balance'}, 
+               ]
+    
+    report = []
+    
+    for period in periods:
+        row = {}
+        row['cells'] = []
+        row['cells'].append({'value': period.start_date, 'date' : True})#.strftime("%a")})
+        
+        #row['cells'].append({'value': period.end_date, 'date' : True})
+        results = Entry.aggregate_healthpost(health_post,[period])
+        row['complete'] = results.pop('complete')
+        for value in results.values():
+            row['cells'].append({'value':value, 'num':True})
+        report.append(row)
+        
+    context_dict = {'health_post': health_post, 'report':report , 'columns':columns}
+            
+    
+        
+    return render_to_response('otp/health_post.html',context_dict,context_instance=RequestContext(request))
 
 
 
