@@ -17,12 +17,12 @@ import django.forms as forms
 
 
 
+
+
 class OTPReporterConnectionInline(admin.TabularInline):
     model = OTPReporterConnection
     extra = 1
 
-##class OTPReporterAdmin(admin.ModelAdmin):
-##    inlines = [OTPReporterConnectionInline,]
 
 class OTPReporterAdmin(admin.ModelAdmin):
     inlines = [OTPReporterConnectionInline,]
