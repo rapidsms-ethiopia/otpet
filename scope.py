@@ -1,4 +1,5 @@
 from models import *
+from utils import *
 
 
 class Scope:
@@ -69,10 +70,6 @@ class Scope:
 
         def health_posts(self,type='health post'):
                 ''' Returns the health posts within the scope location '''
-                #if  self.location == None:
-                #        return HealthPost.objects.all()
-                #else:
-                #        return HealthPost.list_by_location(location=self.location)
                 if type==None:
                     location_type = "health post"
                 health_posts=HealthPost.list_by_location(location=self.location)
@@ -81,7 +78,6 @@ class Scope:
                          if healthpost.location_type==type:
                          	hp.append(healthpost)
                 return hp
-            
 
         # only those HEWs form the the health post
         def otp_reporters(self):
@@ -90,7 +86,7 @@ class Scope:
 
                 health_posts = self.health_posts()
                 otp_reporters = []
-                for otp_reporter in OTPReporter.objects.filter(role__code = 'hew'):
+                for otp_reporter in OTPReporter.objects.filter(role__code='hew'):
                         if HealthPost.by_location(otp_reporter.location) in health_posts:
                                 otp_reporters.append(otp_reporter)
                 return otp_reporters
@@ -110,26 +106,32 @@ class Scope:
                 health extension worker within the scope location '''
                 otp_reporters = self.otp_reporters()
                 health_posts=HealthPost.list_by_location(location=self.location)
+                health_posts = self.health_posts()
                 entries = []
                 for entry in Entry.objects.filter(health_post__in=health_posts):
                         if entry.otp_reporter in otp_reporters:
+#                            if entry.confirmed_by_region == True:
                                 entries.append(entry)
                 return entries
             
         def current_entries(self):
                 ''' Return the current period OTP entries which are reported by the
-                health extension worker within the scope location '''
-                otp_reporters = self.otp_reporters()
-                
-                health_posts=HealthPost.list_by_location(location=self.location)
-                #current_period = ReportPeriod.from_day(datetime.today())
-                start, end = ReportPeriod.weekboundaries_from_day(datetime.today())
-                current = Entry.objects.filter(entry_time__range=(start,end),health_post__in=health_posts)
-                entries = []
-                for entry in current:
-                        if entry.otp_reporter in otp_reporters:
-                                entries.append(entry)
-                return entries
+                health extension worker within the scope location (shows only confirmed ones)'''
+                try:
+                    entries = self.entries()
+                    current_period = get_or_generate_reporting_period()
+                    if self.location.type.name == "federal":
+                        entries_in_currentperiod = filter(lambda entries: entries.report_period == current_period and entries.confirmed_by_region==True, entries)
+                    elif self.location.type.name == "region":
+                        entries_in_currentperiod = filter(lambda entries: entries.report_period == current_period and entries.confirmed_by_zone==True, entries)
+                    elif self.location.type.name == "zone":
+                        entries_in_currentperiod = filter(lambda entries: entries.report_period == current_period and entries.confirmed_by_woreda==True, entries)
+                    else:
+                        entries_in_currentperiod = filter(lambda entries: entries.report_period == current_period, entries)
+                    
+                    return entries_in_currentperiod
+                except:
+                    return None
 
 
 
