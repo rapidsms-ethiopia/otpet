@@ -1,52 +1,39 @@
 from django.conf.urls.defaults import *
-##from export import views as ex_views
 import os
 import otpet.views as views
-#import reporting
-#from django.contrib import admin
 
 urlpatterns = patterns("",
-##    (r'^assets/(?P<path>.*)$', "django.views.static.serve",
-##        {"document_root": os.path.dirname(__file__) + "/static"}),
-##
-##    (r'^graphs/(?P<path>.*)$', "django.views.static.serve",
-##        {"document_root": os.path.dirname(__file__) + "/graphs"}),
-##    
-##	    
-##    # exporting is magic!
-##	(r'^(?P<app_label>.+?)/(?P<model_name>.+?)/export/excel/$', ex_views.to_excel),
-##	(r'^(?P<app_label>.+?)/(?P<model_name>.+?)/export/print/$', views.to_print),
-##	(r'^export/$', ex_views.export),
-     
-    # send sms
-    #   (r'^send_sms/$', views.send_sms),
 
-    # HEW registration form for Woreda Health officer
-	
-    (r'^rutf/register_HEW',views.register_hew),
+    #Dashboard - Index
+    (r'^$', views.index),
+	(r'^otp/$', views.index),
+
+    #Reporters
+    (r'^otp/reporter/(?P<reporter_id>\d+)/$', views.reporter), 
+    (r'^otp/health_workers/$', views.reporters_view),
     
-    (r'^simple.png$', views.simple),
-
-
-    # report in tabular form
-    (r'^otp/reports', views.reports_test),
+    #Dashboard piechart
+    (r'^pie.png$', views.reports_pie),
+    (r'^otp/pie.png$', views.reports_pie),
     
-    #otp reports...
-    (r'^otp/otpreports', views.reports_view),
-    (r'^otp/report', views.report_view),
-
-	(r'^otp/health_workers/$', views.reporters_view),
-
-    # report in chart form
-    (r'^rutf/charts', views.charts),
-	
-    # report in google maps view
-	(r'^rutf/map/$', views.map_entries),
+    #OTP reports...
+    (r'^otp/otpreports/$', views.reports_view),
+    (r'^otp/report/$', views.report_view),
+    
+    #OTP Charts
+    (r'^otp/otpchart/$', views.charts),
+    
+    #OTP Health Posts
 	(r'^otp/health_posts$', views.healthposts_view),
 	(r'^otp/health_post/(\d+)$', views.healthpost_view),
-    # index page of rutf application  
-    (r'^otp/$', views.index),
-	(r'^$', views.index),
+    
+    #Maps
+    (r'^otp/maps$', views.map_entries),
+    
+    # Send SMS message to reporters 
+    (r'^otp/send_sms/$', views.send_sms),
+     
+    
 	
 	
 )
