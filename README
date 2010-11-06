@@ -1,1 +1,18 @@
-otpet is application used to collect and report information on the patients attending Out-patient Therapeutic Program (OTP) 
+otpet is application used to collect and report information 
+on the patients attending Out-patient Therapeutic Program (OTP) 
+
+Nine Indicators are identified to be collected;
+ -Application Name 
+	e.g: otp
+ -Location (CODE) of the OTP Site the reporter is reporting from
+    e.g: WAD - for Waddesa
+ -New Admission: 
+		Number of new OTP patients accepted for the reporting
+        period
+ -Cured:
+ -Died:
+ -Defaulted:
+ -Non-Responded:
+ -Transfered to other sites (OTP/TFU):
+ -Medical Transfer:
+
