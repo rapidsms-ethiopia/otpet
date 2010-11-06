@@ -6,11 +6,12 @@ from strings import ENGLISH as STR
 from django.core.management import setup_environ
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from rapidsms.apps.base import AppBase
-#this shoud be locally available
+
 from parsers.keyworder import * 
 from models import *
-#from apps.locations.models import *
 from utils import *
+
+from tasks import testConsole
 
 
 class App (AppBase):
@@ -24,22 +25,41 @@ class App (AppBase):
     def __get(self, model, **kwargs):
         try:
             # attempt to fetch the object
-	    return model.objects.get(**kwargs)
+	    return model.objects.get(**kwargs) 
 		
 	# no objects or multiple objects found (in the latter case,
 	# something is probably broken, so perhaps we should warn)
 	except (ObjectDoesNotExist, MultipleObjectsReturned):
         	return None
+     
+     
+    def __get_reporter(self, phone):
+        try:
+            # attempt to fetch the object
+            reporters = []
+            for reporter in OTPReporter.objects.all():
+                if reporter.phone == phone:
+                    reporters.append(reporter)
+
+            if len(reporters) > 0:
+                return reporters[0]
+            else:
+                return None
+        
+    # no objects or multiple objects found (in the latter case,
+    # something is probably broken, so perhaps we should warn)
+        except (ObjectDoesNotExist, MultipleObjectsReturned):
+                return None 
             
     def __identify(self, message, task=None):
         caller = message.connection.identity
-        otp_reporter = self.__get(OTPReporter, phone=caller)
+        otp_reporter = self.__get_reporter(phone=caller)
 		
 	# if the caller is not identified, then send
 	# them a message asking them to do so, and
 	# stop further processing
 	if not otp_reporter:
-            msg = "Please register your mobile number"
+            msg = "Your phone is not registered. Please contact your supervisor"
             if task: msg += " before %s." % (task)
             #msg += ", by replying: I AM <USERNAME>"
             message.respond(msg)
@@ -105,8 +125,17 @@ class App (AppBase):
 
     def start (self):
         """Configure your app in the start phase."""
+        self.startSchedule()
+        #testConsole()
+        
+        
+        pass
+    
+    def startSchedule(self):
         pass
 
+        
+        
     def parse (self, message):
         self.handled = False
 
@@ -152,16 +181,72 @@ class App (AppBase):
 
 
     
-    # ALERT <NOTICE> ----------------------------------------------------------
-    kw.prefix = "alert"
+#    # ALERT <NOTICE> ----------------------------------------------------------
+#    kw.prefix = "alert"
+#
+#    @kw("(whatever)")
+#    def alert(self, message, notice):
+#        caller = message.connection.identity
+#        otp_reporter = self.__identify(message,"alerting")
+#        Alert.objects.create(otp_reporter=otp_reporter, resolved=0, notice=notice)
+#        message.respond(STR["alert_ok"] % ("%s %s" % (otp_reporter.first_name, otp_reporter.last_name)))
+#    
+#    @kw.blank()
+#    @kw(r"\s+")
+#    def alert_help(self, message, *msg):
+#        message.respond(STR["alert_help"])
+#
+#
+#
+#    # CANCEL ------------------------------------------------------------------
+#    kw.prefix = ["cancel", "cancle"]
+#
+#    @kw("(letters)")
+#    def cancel_code(self, message, code):
+#        caller = message.connection.identity
+#        otp_reporter = self.__identify(message, "cancelling")
+#        month, year, late , dates_gc = current_reporting_period()
+#        period = get_or_generate_reporting_period()
+#        #current_period = get_or_generate_reporting_period()
+#        
+#        #If late, notifiy 
+#        if late == True:
+#                message.respond("You can't cancel the report. It has been reported late. \
+#                                Or it is late to cancel the report")
+#        else:
+#            try:
+#                # attempt to find otp_reporter's 
+#                # entry with this code
+#                
+#                entry = Entry.objects.filter(
+#                        otp_reporter=otp_reporter,\
+#                        health_post__code=code,
+#                        report_period=period)\
+#                        .order_by('-entry_time')[0]
+#                        
+#                if entry.late == True:
+#                    message.respond("You can't cancel the report. It has been reported late. \
+#                                Or it is late to cancel the report")
+#                else:
+#                    # delete it and notify
+#                    entry.delete()
+#                    message.respond(STR["cancel_code_ok"] % (code))
+#                    
+#                        
+#            except (ObjectDoesNotExist, IndexError):
+#                message.respond(STR["cancel_none"])
 
-    @kw("(whatever)")
+    # ALERT <NOTICE> ----------------------------------------------------------
+    #kw.prefix = "[\"'\s]* alert [\.,\"'\s]*"
+
+    @kw("[\"'\s]*alert[\"'\s]*(whatever)")
     def alert(self, message, notice):
         caller = message.connection.identity
         otp_reporter = self.__identify(message,"alerting")
-        Alert.objects.create(otp_reporter=otp_reporter, resolved=0, notice=notice)
-        message.respond(STR["alert_ok"] % (otp_reporter.alias))
-    
+        if otp_reporter is not None:
+            Alert.objects.create(otp_reporter=otp_reporter, resolved=0, notice=notice)
+            message.respond(STR["alert_ok"] % ("%s %s" % (otp_reporter.first_name, otp_reporter.last_name)))
+
     @kw.blank()
     @kw(r"\s+")
     def alert_help(self, message, *msg):
@@ -170,62 +255,49 @@ class App (AppBase):
 
 
     # CANCEL ------------------------------------------------------------------
-    kw.prefix = ["cancel", "cancle"]
+    kw.prefix = ["[\"'\s]*cancel", "[\"'\s]*cancle"]
 
-    @kw("(letters)")
+    @kw("[\"'\s]*(letters)[\"'\s]*")
     def cancel_code(self, message, code):
         caller = message.connection.identity
         otp_reporter = self.__identify(message, "cancelling")
 
         try:
             # attempt to find otp_reporter's 
-            # entry with this code
+            # entry with this code in the current period
+
+            month, year, late , dates_gc = current_reporting_period()
+            period = get_or_generate_reporting_period()
             entry = Entry.objects.filter(
-                    otp_reporter=otp_reporter,\
-                    health_post__code=code,
-                    entry_time__range=current_reporting_period())\
-                    .order_by('-entry_time')[0]
-
-            # delete it and notify
-            entry.delete()
-            message.respond(STR["cancel_code_ok"] % (code))
-
-        except (ObjectDoesNotExist, IndexError):
-#            try:
-#                # try again for woreda code
-#                entry = Entry.objects.filter(
 #                        otp_reporter=otp_reporter,\
-#                        supply_place__area__code=code)\
-#                        .order_by('-time')[0]
-#
-#                # delete it and notify
-#                entry.delete()
-#                message.respond(STR["cancel_code_ok"] % (code))
+                        health_post__code=code,
+                        report_period=period)\
+                        .order_by('-entry_time')[0]
+            
+            if (late == True or entry.late == True) and otp_reporter:
+                message.respond("You can't cancel the report. It has been reported late.\
+                                Or it is late to cancel the report")
+            elif otp_reporter:
+                # delete it and notify
+                previous_reporter = entry.otp_reporter
+                if otp_reporter == previous_reporter:
+                    entry.delete()
+                    healthpost_name = HealthPost.objects.get(code = code).name
+                    message.respond(STR["cancel_code_ok"] % (healthpost_name))
+                else:
+                    message.respond("You can not cancel the report. \
+                        The report is sent by %s %s" % (previous_reporter.first_name, previous_reporter.last_name) )
 
-#            except (ObjectDoesNotExist, IndexError):
-            message.respond(STR["cancel_none"])
-
-    @kw.blank()
-    def cancel(self, message):
-        caller = message.connection.identity
-        rutf_reporter = self.__identify(message, "cancelling")
-        
-        try:
-            # attempt to find the otp_reporter's
-            # most recent entry TODAY
-            latest = Entry.objects.filter(
-                    time__gt=date.today(),
-                    otp_reporter=otp_reporter)\
-                    .order_by('-time')[0]
-            latest_desc = latest.supply_place	
-            # delete it and notify
-            latest.delete()
-            message.respond(STR["cancel_ok"] % (otp_reporter.alias, latest_desc))
-        
         except (ObjectDoesNotExist, IndexError):
-            message.respond(STR["cancel_none"] % (otp_reporter.alias))
+            if late == False:
+                message.respond(STR["cancel_none"] % period ) 
+            else:
+                message.respond(STR["cancel_late"])
+
+
     
     @kw.invalid()
+    @kw.blank()
     def cancel_help(self, message, *msg):
         message.respond(STR["cancel_help"])
 
@@ -250,291 +322,241 @@ class App (AppBase):
     def help_report(self, message):
         message.respond(STR["help_alert"])
     
+    @kw("activate")
+    def help_report(self, message):
+        message.respond(STR["help_activate"])
+    
+    
     @kw.invalid()
     def help_help(self, message, *msg):
         message.respond(STR["help_help"])
         
-    kw.prefix = ["otp","pp"]
+#    kw.prefix = ["otp","opt"]
+#    @kw(r'(\w+) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers)[,\.\s]*')
+#    def rept(self,message, place_code,na="",cu="", die="", df="", nr="", mt="", tt=""):
+#        month, year, late , dates_gc = current_reporting_period()
+#        period = get_or_generate_reporting_period()
+#        start_date,end_date = (dates_gc[2],dates_gc[3])
+#        caller = message.connection.identity
+#        otp_reporter = self.__identify(message, "reporting")
+#        otpreporter = otp_reporter
+#        loc= None
+#        pcu = place_code.lower()
+#        loc = self.__get(HealthPost, code = pcu)
+#        if loc is None:
+#            message.respond(STR["unknown"]\
+#                %("Health Post, Woreda, or Zone code", pcu))
+#                
+#        
+#        if otp_reporter and loc and otp_reporter.location == loc:          
+#            try:
+#                e = Entry.objects.filter(otp_reporter=otp_reporter,report_period=period,health_post=loc)[0]
+#                if e is not None:
+#                    if late==False:
+#                        message.respond("REPORT NOT RECEIVED, A Report already exists. To correct, reply with < CANCEL %s > and send report again." %pcu)
+#                    else:
+#                        message.respond("CANNOT ACCEPT LATE REPORT, A report already exists.")
+#            except(ObjectDoesNotExist,IndexError):
+#                if late == False :
+#                    period = get_or_generate_reporting_period()
+#                    Entry.objects.create(otp_reporter=otpreporter,
+#                                         health_post = loc,
+#                                         new_admission = na,
+#                                         cured=cu,
+#                                         died=die,
+#                                         defaulted=df,
+#                                         non_responded=nr,
+#                                         medical_transfer=mt,
+#                                         tfp_transfer=tt,
+#                                         report_period=period)
+#                    
+#                    info = ["admission=%s" % (na or "??"),
+#                            "cured=%s" % (cu or "??"),
+#                            "died=%s" % (die or "??"),
+#                            "defaulted=%s" % (df or "??"),
+#                            "non respondent=%s" % (nr or "??"),
+#                            "medical transfer=%s" % (mt or "??"),
+#                            "tfp transfer=%s" % (tt or "??")]
+#                    if loc is not None:
+#                        last_report = Entry.objects.filter(otp_reporter=otp_reporter,
+#                                                           health_post = loc,
+#                                                           new_admission=na,
+#                                                           cured = cu,
+#                                                           died = die,
+#                                                           defaulted = df,
+#                                                           non_responded=nr,
+#                                                           medical_transfer =mt,
+#                                                           tfp_transfer=tt).order_by('-report_period__id')[0]
+#                        receipt = last_report.receiptno
+#                        last_report.save()
+#                        message.respond("Received OTP Report for %s by %s: %s. If this is not correct, reply with CANCEL %s. Receipt No.=%s" %\
+#                        (loc,otp_reporter,", ".join(info),loc,receipt))
+#                else:
+#                    message.respond("Reporting deadline has passed, please contact the woreda health office.")
+#        else:
+#            message.respond("You can not send your report. please check the location code.")
+
+    kw.prefix = ["[\"'\s]*otp[\"'\s]*","[\"'\s]*opt[\"'\s]*"]
     @kw(r'(\w+) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers)[,\.\s]*')
-    def rept(self,message, place_code,na="",cu="", die="", df="", nr="", mt="", tt=""):
-        #message.respond("%s %s %s %s %s %s %s %s" %(place_code,na,cu,die,df,nr,mt,tt))
-        start_date,end_date = current_reporting_period()#ReportPeriod.weekboundaries_from_day(datetime.datetime.today())#current_reporting_period()
+    def report(self,message, place_code,na="",cu="", die="", df="", nr="", mt="", tt=""):
+        
+        # ensure that the caller is known
         caller = message.connection.identity
         otp_reporter = self.__identify(message, "reporting")
-        #otp_reporter = self.__identity(message,"reporting")
-        otpreporter = otp_reporter
-        #message.respond("from %s to %s " %(start_date,end_date))
-        loc= None
-        pcu = place_code.upper()
-        #message.respond("%s" %(pcu))
-        loc = self.__get(HealthPost, code = pcu)
-        if loc is None:
-            message.respond(STR["unknown"]\
-                %("Health Post, Woreda, or Zone code", pcu))
         
-                
-        try:
-            #if there is a duplicate, it is assumed correction.
-            e = Entry.objects.filter(otp_reporter=otp_reporter,entry_time__range=(start_date,end_date),health_post=loc).order_by('-entry_time')[0]
-            if e is not None:
-                e.delete()
-                period = get_or_generate_reporting_period()
-                Entry.objects.create(otp_reporter=otpreporter,
-                                     health_post = loc,
-                                     new_admission = na,
-                                     cured=cu,
-                                     died=die,
-                                     defaulted=df,
-                                     non_responded=nr,
-                                     medical_transfer=mt,
-                                     tfp_transfer=tt,
-                                     report_period=period)
-        except(ObjectDoesNotExist,IndexError):
+        
+        
+        plc_code = place_code.upper()
+        # the "place" can be Health post, woreda, or zone
+        place = self.__get(HealthPost, code=plc_code)
+
+
+
+        month, year, late , dates_gc = current_reporting_period()            
+        
+        if otp_reporter and place and otp_reporter.location == place and otp_reporter.is_active_reporter == True:
+                        
+            # init variables to avoid
+            # pythonic complaints
+            health_post = None
+            woreda = None
+            zone = None
+            
+                    
+           
+            
+            # create the entry object, 
+            # unless its a duplicate report in the period
+                        
             period = get_or_generate_reporting_period()
-            Entry.objects.create(otp_reporter=otpreporter,
-                                 health_post = loc,
-                                 new_admission = na,
-                                 cured=cu,
-                                 died=die,
-                                 defaulted=df,
-                                 non_responded=nr,
-                                 medical_transfer=mt,
-                                 tfp_transfer=tt,
-                                 report_period=period)
-            
-        info = ["admission=%s" % (na or "??"),
-                "cured=%s" % (cu or "??"),
-                "died=%s" % (die or "??"),
-                "defaulted=%s" % (df or "??"),
-                "non respondent=%s" % (nr or "??"),
-                "medical transfer=%s" % (mt or "??"),
-                "tfp transfer=%s" % (tt or "??")]
-        
-        if loc is not None:
-            last_report = Entry.objects.filter(otp_reporter=otp_reporter,
-                                               health_post = loc,
-                                               new_admission=na,
-                                               cured = cu,
-                                               died = die,
-                                               defaulted = df,
-                                               non_responded=nr,
-                                               medical_transfer =mt,
-                                               tfp_transfer=tt).order_by('-report_period__id')[0]
-            receipt = last_report.receipt
-            message.respond("Received OTP Report for %s by %s: %s. If this is not correct, reply with CANCEL %s. Receipt No.=%s" %\
-                (loc,otp_reporter,", ".join(info),loc,receipt))
-            
-    
+            month_year = "%s-%s" % (month, year)
+            try:
+                entry = Entry.objects.filter(report_period=period,health_post=place)[0]
+
+                if entry is not None:
+                    previous_reporter_name = "%s %s" % (entry.otp_reporter.first_name,entry.otp_reporter.last_name)
+                    current_reporter_name = "%s %s" % (otp_reporter.first_name,otp_reporter.last_name)
+
+                    if late == False:
+                        
+
+                        if previous_reporter_name == current_reporter_name:
+                            message.respond("You have already reported for %s Month. \
+                                        If that was not correct, reply with CANCEL %s."
+                                        % (month_year, place.code))
+                        else:
+                            message.respond("%s have already reported for %s Month.\
+                                            The previous report should be canceled first."
+                                        % (previous_reporter_name, month_year))
+                            
+                    else:
+                        if previous_reporter_name == current_reporter_name:
+                            message.respond("You have already reported for %s Month. \
+                                        But now you are late to correct the previous report."
+                                        % (month_year))
+                        else:
+                            message.respond("%s have already reported for %s Month. \
+                                        But now you are late to correct the previous report."
+                                        % (previous_reporter_name,month_year))
+                    
+
+            # If duplicate entry doesn't exist in the period
+            except (ObjectDoesNotExist, IndexError):
+
+                                      
+                # add the entry
+                # Get the reporting period
+
+                if late == False:
+                    Entry.objects.create(otp_reporter=otp_reporter,
+                                         health_post = place, 
+                                         new_admission = na, 
+                                         cured=cu,died=die,
+                                         defaulted=df,
+                                         non_responded=nr, 
+                                         medical_transfer=mt,
+                                         tfp_transfer=tt, 
+                                         report_period=period)
+                
+                    # collate all of the information submitted, to
+                    # be sent back and checked by the reporter
+                    info = ["admission=%s" % (na or "??"),
+                            "cured=%s" % (cu or "??"),
+                            "died=%s" % (die or "??"),
+                            "defaulted=%s" % (df or "??"),
+                            "non respondent=%s" % (nr or "??"),
+                            "medical transfer=%s" % (mt or "??"),
+                            "tfp transfer=%s" % (tt or "??")]
+                    
+                    # notify the reporter of their new entry
+                    #if place is not None:
+                    last_report = Entry.objects.filter(otp_reporter=otp_reporter,
+                                                       health_post = place,
+                                                       new_admission=na,
+                                                       cured = cu,
+                                                       died = die,
+                                                       defaulted = df,
+                                                       non_responded=nr,
+                                                       medical_transfer =mt,
+                                                       tfp_transfer=tt).order_by('-report_period__id')[0]
+                        
+
+                    # Generate receipt
+                    new_receipt = last_report.receiptno
+                    # then update the receipt value of the report
+                    last_report.receipt = new_receipt
+                    last_report.save()
+                    
+                    message.respond("Received OTP Report for %s by %s: %s. If this is not correct, reply with CANCEL %s. Receipt No.=%s" %\
+                        (place,otp_reporter,", ".join(info),plc_code,new_receipt))
+                else:
+                    message.respond("You can not send your report. you are late.")
+        else:
+            if late == True and otp_reporter:
+                message.respond("You can not send your report. you are late.")                
+                
+            elif otp_reporter:
+                if otp_reporter.is_active_reporter == True:
+                    reporter_location_code = otp_reporter.location.code
+                    message.respond("You can not send your report. \
+                        please check the supply code and the location code. \
+                        Your location code is: %s" % reporter_location_code)
+                else:
+                    message.respond("Currently you are not active reporter. \
+                        To activate yourself, please reply as: ACTIVATE")
+                
+   
             
     @kw.invalid()
     def help_report(self, message, *msg):
-        message.respond("OTP REPORT ERROR : " + STR["help_report"])
-                
-        
-        
-#        message.respond("check Duplicate...")
-#        message.respond("date range is.. from %s to %s" %(start_date,end_date))
-#        message.respond("%s %s %s %s %s %s %s %s %s--%s" %(otpreporter,place_code,na,cu,die,df,nr,mt,tt,loc))
-        
-        
-        
-    
-
-    kw.prefix = ["otpp","opt"]
-    @kw(r'(\w+) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers) (numbers)[,\.\s]*')
-    def report(self, message, place_code, na="", cu="", die="", df="", nr="", mt="", tt=""):
-        start_date,end_date = ReportPeriod.weekboundaries_from_day(datetime.datetime.today())#current_reporting_period()
-        message.respond("__")
-        otp_reporter = self.__identity(message,"reporting")
-        otpreporter = otp_reporter
-        message.respond("__")
-        message.respond("from %s to %s " %(start_date,end_date))
-        message.respond("__")
-		#???validate each input if the reports are numbers
-		#???new admission > total of the rest
-		#some how it is allowing for unregistered phone...        
-		# init variables to avoid
-		# pythonic complaints	
-        loc= None
-        pcu = place_code
-        message.respond("%s" %(pcu))
-        loc = self.__get(HealthPost, code = pcu)
-        messge.respond("%s - %s --> %s" % (otp_reporter, pcu, loc))
-        if loc is None:
-            message.respond(STR["unknown"])\
-                %("Health Post, Woreda, or Zone code", pcu)
-        message.respond("check Duplicate...")
-        try:
-            e = Entry.objects.filter(otp_reporter=otp_reporter,entry_time__range=(start_date,end_date)).order_by('-entry_time')[0]
-            if e is not None:
-                e.new_admission = na
-                e.cured = cu
-                e.died = die
-                e.defaulted = df
-                e.non_responded = nr
-                e.medical_transfer = mt
-                e.tfp_transfer = tt
-                e.save()
-        except(ObjectsDoesNotExist, IndexError):
-            period = get_or_generate_reporting_period()
-            Entry.objects.create(otp_reporter=otpreporter,
-                                 health_post = loc,
-                                 new_admission = na,
-                                 cured=cu,
-                                 died=die,
-                                 defaulted=df,
-                                 non_responded=nr,
-                                 medical_transfer=mt,
-                                 tfp_transfer=tt,
-                                 report_period=period)
-        info = ["admission=%s" % (na or "??"),
-                "cured=%s" % (cu or "??"),
-                "died=%s" % (die or "??"),
-                "defaulted=%s" % (df or "??"),
-                "non respondent=%s" % (nr or "??"),
-                "medical transfer=%s" % (mt or "??"),
-                "tfp transfer=%s" % (tt or "??")]
-        
-        if loc is not None:
-            last_report = Entry.objects.filter(otp_reporter=otp_reporter,
-                                               health_post = loc,
-                                               new_admission=na,
-                                               cured = cu,
-                                               died = die,
-                                               defaulted = df,
-                                               non_responded=nr,
-                                               medical_transfer =mt,
-                                               tfp_transfer=tt).order_by('-report_period__id')[0]
-            receipt = last_report.receipt
-            message.respond("Received OTP Report for %s by %s: %s. If this is not correct, reply with CANCEL %s. Receipt No.=%s" %\
-                (loc,otp_reporter,", ".join(info),loc,receipt))
-        
-    @kw.invalid()
-    def help_report(self, message, *msg):
-        message.respond("OTP REPORT ERROR : " + STR["help_report"])
-
-       
-
-
-    # NO IDEA WHAT THE CALLER WANTS -------------------------------------------
-	
-    def incoming_sms(self, message, msg):
         caller = message.connection.identity
-        self.log("No match by regex", "warn")
+        otp_reporter = self.__identify(message, "reporting")
+        if otp_reporter:
+            message.respond("OTP REPORT ERROR : " + STR["help_report"])
         
-        # we will only attempt to guess if
-        # it looks like the caller is trying
-        # to use these functions
-        guess_funcs = (
-                self.identify,
-                self.report,
-                self.alert)
-        
-        while(len(msg) > 0):
-                found = False
-                
-                # iterate each guessable function, and each
-                # of its regexen without their tailing DOLLAR.
-                # since we couldn't find a real match, we're
-                # looking for a matching prefix (in case the
-                # sender has appended junk to their message,
-                # or concatenated multiple messages without
-                # proper delimitors)
-                for func in guess_funcs:
-                        for regex in getattr(func, "regexen"):
-                                pattern = regex.pattern.rstrip("$")
-                                new_regex = re.compile(pattern, re.IGNORECASE)
-                                
-                                # does the message START with
-                                # the applied pattern?
-                                match = new_regex.match(msg)
-                                if match:
-                                        
-                                        # hack: since we're about to recurse via d_i_sms,
-                                        # the chopped up message will be entered into the
-                                        # database as if it were a real message, which will
-                                        # confuse the log. this flag instructs before_incoming
-                                        # to mark the following messages as virtual
-                                        self.processing_virtual = True
-                                        
-                                        # log and dispatch the matching part, as if
-                                        # it were a regular incoming message
-                                        self.log("Prefix matches function: %s" % (func.func_name), "info")
-                                        self.dispatch_incoming_sms(caller, match.group(0))
-                                        
-                                        # revert to normal behavior
-                                        self.processing_virtual = False
-                                        
-                                        # drop the part of the message
-                                        # that we just dealt with, and
-                                        # continue with the next iteration
-                                        msg = new_regex.sub("", msg, 1).strip()
-                                        found = True
-                                        break
-                
-                # nothing matched in this iteration,
-                # so it won't ever. abort :(
-                if not found:
-                        self.log("No match for: %r" % (msg), "warn")
-                        message.respond(STR["error"])
-
-
-
-
-    # LOGGING -----------------------------------------------------------------
+    # set me active reporter ------------------------------------------------
     
-    # always called by smsapp, to log
-    # without interfereing with dispatch
-    def before_incoming(self, caller, msg):
-            
-            # we will log the rutf_reporter, if we can identify
-            # them by their number. otherwise, log the number
-            mon = self.__get(otp_reporter, phone=caller)
-            if mon is None: ph = caller
-            else: ph = None
-            
-            # don't log if the details are the
-            # same as the transaction itself
-            if mon == self.transaction.otp_reporter: mon = None
-            if ph  == self.transaction.phone:   ph  = None
-            
-            # see above (hack) for explanation
-            # of t his 'virtual' flag
-            virt = False
-            if hasattr(self, "processing_virtual"):
-                    virt = self.processing_virtual
-            
-            # create a new log entry
-            Message.objects.create(
-                    transaction=self.transaction,
-                    is_outgoing=False,
-                    phone=caller,
-                    otp_reporter=mon,
-                    message=msg,
-                    is_virtual=virt)
-    
-    
-    # as above...
-    def before_outgoing(self, recipient, msg):
-            
-            # we will log the rutf_reporter, if we can identify
-            # them by their number. otherwise, log the number
-            mon = self.__get(otp_reporter, phone=recipient)
-            if mon is None: ph = recipient
-            else: ph = None
-            
-            # don't log if the details are the
-            # same as the transaction itself
-            if mon == self.transaction.otp_reporter: mon = None
-            if ph  == self.transaction.phone:   ph  = None
-            
-            # create a new log entry
-            Message.objects.create(
-                    transaction=self.transaction,
-                    is_outgoing=True,
-                    phone=recipient,
-                    otp_reporter=mon,
-                    message=msg)
+    kw.prefix = ["[\"'\s]*activate[\"'\s]*", "[\"'\s]*activate [\"'\s]*me[\"'\s]*",
+        "[\"'\s]*active[\"'\s]*", "[\"'\s]*set [\"'\s]*active[\"'\s]*"]
+    @kw.blank()
+    def activate_reporter(self, message):
+        caller = message.connection.identity
+        otp_reporter = self.__identify(message,"Activating")
+        if otp_reporter is not None and otp_reporter.has_phone == True:
+            # set other reporters in that location as inactive
+            place_assigned = otp_reporter.place_assigned
+            reporters = place_assigned.reporters
+            for reporter in reporters:
+                if reporter == otp_reporter:
+                    otp_reporter.is_active_reporter = True
+                    otp_reporter.save()
+                    message.respond(STR["activate_ok"])
+                else:
+                    reporter.is_active_reporter = False
+                    reporter.save()
+                    
+    @kw.invalid()
+    def activate_help(self, message, *msg):
+        message.respond(STR["activate_help"])
 
-    def getRouter(self):
-        return self.router
+
